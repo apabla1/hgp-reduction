@@ -109,73 +109,15 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
         Returns the indices of the stabilizers in H that have support on qubit at index q.
         """
         return H.getcol(q).nonzero()[0]
-    
-    def plus(H1, H2):
+
+    def add(H1, H2):
         """
-        Adds matrices H1 and H2 over F2.
+        Adds two binary csr matrices over F2. 
         """
-        H = H1 + H2
+        H = (H1 + H2).tocsr()
         H.data %= 2
         H.eliminate_zeros()
         return H
-    
-    def combinerowsF2(H, stab_indices):
-        """ 
-        Combines adjacent rows in `stab_indices` of H,
-        as a new matrix Hnew.
-        For example, if `stab_indices` = [3, 5, 7, 8]:
-        - H[3] + H[5] is a row of Hnew
-        - H[5] + H[7] is a row of Hnew
-        - H[7] + H[8] is a row of Hnew
-        - Other rows of Hnew are the same as H (H[1], H[2], H[4], H[6], etc.)
-        
-        Additionally, Hnew is returned as two matrices Hnew1 and Hnew2 such that
-        Hnew = Hnew1 oplus Hnew2. They are defined as follows:
-        
-        Init: Hnew1 = H, Hnew2 = all zeros
-        Combining H[i] and H[j] ==> Hnew1.removerow(i); Hnew2.appendrow(j)
-        
-        Example: Combining rows i = 2 and j = 3 of
-        H = [ 0 0 0 0
-              0 1 0 1
-              1 0 1 0 ]
-        yields:
-        Hnew1 = [ 0 0 0 0      Hnew2 = [ 0 0 0 0 
-                  0 1 0 1  ]             1 0 1 0 ]
-        so that
-        Hnew1 + Hnew2 = [ 0 0 0 0
-                          1 1 1 1 ] = Hnew
-        """
-        # no combining needed
-        if len(stab_indices) < 2:
-            return H, sp.lil_matrix(H.shape, dtype=int)
-    
-        # init: Hnew1 = H, Hnew2 = all zeros
-        Hnew1 = H.tolil(copy=True)
-        Hnew2 = sp.lil_matrix(H.shape, dtype=int)
-
-        # iterate and combine rows of adjacent elements in `stab_indices`
-        for k in range(len(stab_indices) - 1):
-            
-            # row indices of H to combine
-            i = stab_indices[k]
-            j = stab_indices[k + 1]
-
-            # Hnew[j] = Hnew1[j] oplus Hnew2[j] 
-            rj_total = (Hnew1.getrow(j).toarray()[0] ^ Hnew2.getrow(j).toarray()[0]).astype(int) 
-            
-            # Hnew2[i] = Hnew2[i] oplus Hnew[j]
-            ri_extra = Hnew2.getrow(i).toarray()[0].astype(int)
-            Hnew2[i, :] = (ri_extra ^ rj_total).astype(int)
-
-        # delete last stabilizer row
-        last_row = stab_indices[-1]
-        m, _ = H.shape
-        keep_rows = [r for r in range(m) if r != last_row]
-
-        Hnew1 = Hnew1[keep_rows, :]
-        Hnew2 = Hnew2[keep_rows, :]
-        return Hnew1, Hnew2
     
 ### Optimizing size of color groups. Since we only remove check-type qubits in select color 
 ### groups, we should make the size of those color groups the largest
@@ -208,55 +150,82 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     color_groups = new_color_groups
        
 ### Combining stabilizers 
-    Zgroups = [n**2 + (m*c1 + c2) for g in Zcombines for (c1, c2) in color_groups[g]]
-    Hznew = code.hz.tolil(copy=True)
-    Hznew1 = Hznew.copy()
-    Hznew2 = sp.lil_matrix(code.hz.shape, dtype=int)
+    Hznew1 = code.hz.tocsr(copy=True)
+    Hznew2 = sp.csr_matrix(Hznew1.shape, dtype=int)
+    # Z
     for Zcolorgroup in Zcombines:
         for (c1, c2) in color_groups[Zcolorgroup]:
-            # qubit coord (a, b) is index (n**2) + (ma + b)
-            Hznew = plus(Hznew1, Hznew2)
-            Hznew1, Hznew2 = combinerowsF2(Hznew, stabs_touching_qubit(Hznew, n**2 + m*c1 + c2))
-            Hznew = plus(Hznew1, Hznew2)
-    Xgroups = [n**2 + (m*c1 + c2) for g in Xcombines for (c1, c2) in color_groups[g]]
-    Hxnew = code.hx.tolil(copy=True)
-    Hxnew1 = Hxnew.copy()
-    Hxnew2 = sp.lil_matrix(code.hz.shape, dtype=int)
+            Hz_tot = add(Hznew1, Hznew2)
+            q = n**2 + m*c1 + c2
+            combinedstabs = list(map(int, stabs_touching_qubit(Hz_tot, q)))
+            if len(combinedstabs) < 2:
+                continue
+            last = combinedstabs[-1]
+            keep_rows = [r for r in range(Hz_tot.shape[0]) if r != last]
+            old_to_new = {old: new for new, old in enumerate(keep_rows)}
+            Hznew1 = Hz_tot[keep_rows, :].tocsr()
+            Hznew2_lil = sp.lil_matrix(Hznew1.shape, dtype=int)
+            for t in range(len(combinedstabs) - 1):
+                i = combinedstabs[t]
+                j = combinedstabs[t + 1]
+                Hznew2_lil[old_to_new[i], :] = Hz_tot.getrow(j)
+            Hznew2 = Hznew2_lil.tocsr()
+    # X
+    Hxnew1 = code.hx.tocsr(copy=True)
+    Hxnew2 = sp.csr_matrix(Hxnew1.shape, dtype=int)
     for Xcolorgroup in Xcombines:
         for (c1, c2) in color_groups[Xcolorgroup]:
-            Hxnew = plus(Hxnew1, Hxnew2)
-            Hxnew1, Hxnew2 = combinerowsF2(Hxnew, stabs_touching_qubit(Hxnew, n**2 + m*c1 + c2))
-            Hxnew = plus(Hxnew1, Hxnew2)
+            Hx_tot = add(Hxnew1, Hxnew2)
+            q = n**2 + m*c1 + c2
+            combinedstabs = list(map(int, stabs_touching_qubit(Hx_tot, q)))
+            if len(combinedstabs) < 2:
+                continue
+            last = combinedstabs[-1]
+            keep_rows = [r for r in range(Hx_tot.shape[0]) if r != last]
+            old_to_new = {old: new for new, old in enumerate(keep_rows)}
+            Hxnew1 = Hx_tot[keep_rows, :].tocsr()
+            Hxnew2_lil = sp.lil_matrix(Hxnew1.shape, dtype=int)
+            for t in range(len(combinedstabs) - 1):
+                i = combinedstabs[t]
+                j = combinedstabs[t + 1]
+                Hxnew2_lil[old_to_new[i], :] = Hx_tot.getrow(j)
+            Hxnew2 = Hxnew2_lil.tocsr()
 
 ### Cutting other support
+    Hxnew1 = Hxnew1.tolil(copy=True)
+    Hxnew2 = Hxnew2.tolil(copy=True)
+    Hznew1 = Hznew1.tolil(copy=True)
+    Hznew2 = Hznew2.tolil(copy=True)
     for Zcolorgroup in Zcombines:
         for (c1, c2) in color_groups[Zcolorgroup]:
             q = n**2 + (m*c1 + c2)
-            #print(f"qubit coordinate = ({c1}, {c2})")
-            #print(f"qubit index = {q}")
-            # qubit idx at coord (a, b) is (n**2) + (ma + b)
-            Hxnew[:, q] = 0
+            Hxnew1[:, q] = 0
+            Hxnew2[:, q] = 0
 
     for Xcolorgroup in Xcombines:
         for (c1, c2) in color_groups[Xcolorgroup]:
             q = n**2 + (m*c1 + c2)
-            #print(f"qubit coordinate = ({c1}, {c2})")
-            #print(f"qubit index = {q}")
-            # qubit idx at coord (a, b) is (n**2) + (ma + b)
-            Hznew[:, q] = 0
+            Hznew1[:, q] = 0
+            Hznew2[:, q] = 0
+    Hxnew1 = Hxnew1.tocsr()
+    Hxnew2 = Hxnew2.tocsr()
+    Hznew1 = Hznew1.tocsr()
+    Hznew2 = Hznew2.tocsr()
 
 ### Remove qubits that lost support
-    def remove_supportless(H):
-        H.eliminate_zeros()
-        col_nnz = H.getnnz(axis=0) 
+    def remove_supportless_split(H1, H2):
+        Htot = add(H1, H2)
+        col_nnz = Htot.getnnz(axis=0)
         keep_idx = np.where(col_nnz > 0)[0]
-        return H[:, keep_idx]
-    Hxnew = remove_supportless(Hxnew)
-    Hznew = remove_supportless(Hznew)
+        return H1[:, keep_idx].tocsr(), H2[:, keep_idx].tocsr()
+    Hxnew1, Hxnew2 = remove_supportless_split(Hxnew1, Hxnew2)
+    Hznew1, Hznew2 = remove_supportless_split(Hznew1, Hznew2)
     
 ### Reduced code
+    Hxnew = add(Hxnew1, Hxnew2)
+    Hznew = add(Hznew1, Hznew2)
     newcode = css_code(hx=Hxnew, hz=Hznew)
     newcode.name = 'Transformed code'
     print(f"Reduced code: [[n', k', d']] = [[{newcode.N}, {newcode.K}, {code.D}]]")
     
-    return Hxnew, Hznew
+    return Hxnew1, Hxnew2, Hznew1, Hznew2, newcode

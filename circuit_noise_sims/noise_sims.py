@@ -7,12 +7,14 @@ if __name__ == '__main__':
     
     ### Reduced HGP from random (d_v, d_c), [n, k, d_min] classical code
     ### params: (n, d_v, d_c, d_min, min # of color groups)
-    Hxnew, Hznew = get_reduced_random_code(20, 3, 5, 6, 5)
-    code = css_code(hx=Hxnew, hz=Hznew, name="Reduced Code")
+    Hx1, Hx2, Hz1, Hz2, code = get_reduced_random_code(20, 3, 5, 6, 5)
+    code1 = css_code(hx=Hx1, hz=Hz1)
+    code2 = css_code(hx=Hx2, hz=Hz2) # will be an invalid code
     
     # params: (code, rounds, p1, p2, p_spam, seed)
     rounds = 2
-    c = generate_full_circuit(code, rounds, 1e-3, 1e-2, 1e-3, 1234)
+    c1 = generate_full_circuit(code1, rounds, 1e-3, 1e-2, 1e-3, 1234)
+    c2 = generate_full_circuit(code2, rounds, 1e-3, 1e-2, 1e-3, 1234)
     
     # sample
     shots = 200
