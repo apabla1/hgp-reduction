@@ -90,3 +90,73 @@ def generate_full_circuit(code, rounds, p1, p2, p_spam, seed):
     c.append("X_ERROR", data_qubits, p_spam)
     c.append("MR", data_qubits)
     return c
+
+def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed, measure_x=False):
+    """
+    Like generate_full_circuit, but performs two-stage syndrome extraction:
+      - measure syndromes for H1 (stage 1) then H?2 (stage 2)
+      - MR between stages (so ancillas reset)
+      - effective syndrome is XOR(stage1, stage2) in post-processing.
+    If measure_x=False, X checks are still extracted in two stages but NOT recorded.
+    """
+    mx, n = Hx1.shape
+    mz = Hz1.shape[0]
+
+    data_qubits = range(n)
+    x_checks = range(n, n + mx)
+    z_checks = range(n + mx, n + mx + mz)
+
+    c = stim.Circuit()
+
+    # ancilla initialization errors (once at start, like your original)
+    c.append("X_ERROR", z_checks, p_spam)
+    c.append("X_ERROR", x_checks, p_spam)
+
+    # build the four subcircuits
+    z1 = generate_synd_circuit(Hz1, z_checks, stab_type=0, p1=p1, p2=p2, seed=seed)
+    z2 = generate_synd_circuit(Hz2, z_checks, stab_type=0, p1=p1, p2=p2, seed=seed + 1)
+
+    x1 = generate_synd_circuit(Hx1, x_checks, stab_type=1, p1=p1, p2=p2, seed=seed + 2)
+    x2 = generate_synd_circuit(Hx2, x_checks, stab_type=1, p1=p1, p2=p2, seed=seed + 3)
+
+    c_se = stim.Circuit()
+    for _ in range(rounds):
+        # --- Z stage 1 ---
+        c_se += z1
+        c_se.append("X_ERROR", z_checks, p_spam)
+        c_se.append("MR", z_checks)              # records + resets
+        c_se.append("X_ERROR", z_checks, p_spam)
+
+        # --- Z stage 2 ---
+        c_se += z2
+        c_se.append("X_ERROR", z_checks, p_spam)
+        c_se.append("MR", z_checks)              # records + resets
+        c_se.append("X_ERROR", z_checks, p_spam)
+
+        # --- X stage 1 ---
+        c_se += x1
+        c_se.append("X_ERROR", x_checks, p_spam)
+        if measure_x:
+            c_se.append("MR", x_checks)          # records + resets
+            c_se.append("X_ERROR", x_checks, p_spam)
+        else:
+            c_se.append("R", x_checks)           # reset only (no record)
+            c_se.append("X_ERROR", x_checks, p_spam)
+
+        # --- X stage 2 ---
+        c_se += x2
+        c_se.append("X_ERROR", x_checks, p_spam)
+        if measure_x:
+            c_se.append("MR", x_checks)
+            c_se.append("X_ERROR", x_checks, p_spam)
+        else:
+            c_se.append("R", x_checks)
+            c_se.append("X_ERROR", x_checks, p_spam)
+
+    c += c_se
+
+    # final data measurement
+    c.append("X_ERROR", data_qubits, p_spam)
+    c.append("MR", data_qubits)
+
+    return c
