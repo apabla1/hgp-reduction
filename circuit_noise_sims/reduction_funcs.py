@@ -1,14 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
-import scipy.sparse.linalg
-from scipy.sparse import csc_matrix, csr_matrix, lil_matrix, identity, diags
 import scipy.sparse as sp
-from scipy.io import mmwrite
+import networkx as nx
+from scipy.sparse import csc_matrix, csr_matrix, lil_matrix
 from bposd.hgp import hgp
 from bposd.css import css_code
-from ldpc.code_util import construct_generator_matrix, compute_code_parameters, estimate_code_distance, compute_exact_code_distance
+from ldpc.code_util import compute_code_parameters, compute_exact_code_distance
 from ldpc.mod2 import rank
-import networkx as nx
 from networkx.algorithms.bipartite import configuration_model, biadjacency_matrix
 from matplotlib import rcParams
 
@@ -22,12 +20,9 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     :param min_dist: minimum distance of classical code 
     :param max_coloring: maximum number of color groups in classical code
     """
-    
-    def get_bit_adj_graph(H):
-        """
-        Returns the bit-adjacency graph of H, where edges 
-        between bits exist iff bits share a common check.
-        """
+
+### Helpers to create the random classical code
+    def get_check_adj_graph(H):
         A = (H @ H.T != 0).astype(int) # #checks x #checks; 1 if checks share a bit; 0 otherwise
         np.fill_diagonal(A, 0)
         G = nx.from_numpy_array(A, create_using=nx.Graph())
@@ -35,12 +30,7 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
 
 
     def get_check_coloring(H):
-        """
-        Colors the nodes of the bit-adjacency graph, which is 
-        equivalent to coloring the checks of H based on which 
-        bits share mutual support.
-        """
-        G = get_bit_adj_graph(H)
+        G = get_check_adj_graph(H)
         color_dict = nx.greedy_color(G, strategy='independent_set')
         
         num_colors = max(list(color_dict.values())) + 1
@@ -52,9 +42,7 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
 ### Create random classical code
     tries = 10000
     coloring = []
-    H = None
     
-    # `tries` chances to get the classical code compliant with `min_dist` and `max_coloring`
     for i in range(tries):
         
         # number of checks
@@ -82,7 +70,7 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     
 ### Create HGP code from two of the random classical code
     code = hgp(h1=H, h2=H, compute_distance=True)
-    code.name = 'HGP Random'
+    code.name = 'Random Code HGP'
     print(f"HGP Code: [[{code.N}, {code.K}, {code.D}]]")
     
 ### Create color groups of HGP check-type qubits that come from the coloring of the classical checks
@@ -119,39 +107,65 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
         H.eliminate_zeros()
         return H
     
-### Optimizing size of color groups. Since we only remove check-type qubits in select color 
-### groups, we should make the size of those color groups the largest
-    Zcombines = [i*len(coloring) + i for i in range(len(coloring))]
-    Xcombines = [i*len(coloring) + (i+1 if i%2 == 0 else i-1) for i in range(len(coloring) - 1)]
+### Optimizing size of color groups.
+    def color_groups_to_bipartite_graph(color_groups):
+        """
+        Build the bipartite graph used in the reduction.
+        """
+        k = int(round(np.sqrt(len(color_groups))))
+        assert k * k == len(color_groups)
+        G = nx.Graph()
 
-    old_groups = color_groups.copy()
-    all_indices = list(color_groups.keys())
+        # 2k + k^2 bipartite nodes
+        rowcol_nodes = [f"X{i}" for i in range(k)] + [f"Z{i}" for i in range(k)]
+        color_nodes = [i for i in range(k**2)]
+        G.add_nodes_from(rowcol_nodes, bipartite=0)
+        G.add_nodes_from(color_nodes, bipartite=1)
 
-    # indices where we want the largest groups to live
-    targets = list(dict.fromkeys(Xcombines + Zcombines)) 
-    num_targets = len(targets)
+        # X (row) edges
+        for i in range(k): # for each X-node Xi
+            for j in range(k): # will connect to k color nodes
+                color_idx = (i * k) + j
+                w = len(color_groups[color_idx])
+                G.add_edge(f"X{i}", color_idx, weight=w)
 
-    # sort group indices by group size
-    sorted_indices = sorted(all_indices, key=lambda idx: len(color_groups[idx]), reverse=True)
+        # Z (column) edges
+        for i in range(k): # for each Z-node Zi
+            for j in range(k): # will connect to k color nodes
+                color_idx = (j * k) + i
+                w = len(color_groups[color_idx])
+                G.add_edge(f"Z{i}", color_idx, weight=w)
 
-    top = sorted_indices[:num_targets]
-    rest = sorted_indices[num_targets:]
-    new_color_groups = {}
+        return G
 
-    # send biggest groups to target indices 
-    for src_idx, target_idx in zip(top, targets):
-        new_color_groups[target_idx] = color_groups[src_idx]
+    def max_weight_matching(G):
+        """
+        Find the maximum weight matching of G.
+        """
+        matching = nx.max_weight_matching(G, maxcardinality=True)
+        # Format: e.g., {("X0", 7), ("Z1", 3), ...} (order not guaranteed)
+        return matching
 
-    # send remaining groups to the non-target indices
-    non_targets = [idx for idx in all_indices if idx not in targets]
-    for src_idx, target_idx in zip(rest, non_targets):
-        new_color_groups[target_idx] = color_groups[src_idx]
+    def extract_combine_schedule_from_matching(matching):
+        """
+        Extract the schedule of which stabilizers to combine given a matching.
+        """
+        k = len(matching) // 2
+        mate = {}
+        for u, v in matching:
+            mate[u] = v
+            mate[v] = u
+        # {("X0", 7), ("Z1", 3), ...} -> {X0: 7, Z1: 3, ...}
+        Xcombines = [mate[f"X{i}"] for i in range(k)]
+        Zcombines = [mate[f"Z{j}"] for j in range(k)]
+        return Xcombines, Zcombines
 
-    color_groups = new_color_groups
+    Xcombines, Zcombines = extract_combine_schedule_from_matching(max_weight_matching(color_groups_to_bipartite_graph(color_groups)))
        
 ### Combining stabilizers 
     Hznew1 = code.hz.tocsr(copy=True)
     Hznew2 = sp.csr_matrix(Hznew1.shape, dtype=int)
+    
     # Z
     for Zcolorgroup in Zcombines:
         for (c1, c2) in color_groups[Zcolorgroup]:
