@@ -161,65 +161,72 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
         return Xcombines, Zcombines
 
     Xcombines, Zcombines = extract_combine_schedule_from_matching(max_weight_matching(color_groups_to_bipartite_graph(color_groups)))
-       
+    
 ### **Combining stabilizers** 
 ### Hxnew1 will contain the original rows of stabilizers, and Hxnew2 will contain the combined rows
 ### Together, Hxnew = Hxnew1 + Hxnew2
-### Example: Xcombines = [2, 3, 5],  Hx = [ 0 1 0 0   <- row 1
-###                                         0 0 1 0   <- row 2
-###                                         1 0 1 0   <- row 3
-###                                         1 0 0 1   <- row 4
-###                                         1 0 1 1   <- row 5
-###                                         1 1 0 1 ] <- row 6 
-### -----------------------------------------------------------------------------------------------
-### Hxnew1 = [ 0 1 0 0     +    Hxnew2 = [ 0 0 0 0      =    Hxnew = [ 0 1 0 0   <- row 1 
-###            0 0 1 0                     1 0 1 0                     1 0 0 0   <- row 2 + row 3
-###            1 0 0 1                     0 0 0 0                     1 0 0 1   <- row 4
-###            1 0 1 0                     1 0 1 1                     0 0 0 1   <- row 3 + row 5
-###            1 1 0 1 ]                   0 0 0 0 ]                   1 1 0 1 ] <- row 6 
-###                                                                        ↑ support removed here
+### Example: Xcombines = [1, 2, 4],  Hx = [ 0 1 0 0   <- row 0
+###                                         0 0 1 0   <- row 1
+###                                         1 0 1 0   <- row 2
+###                                         1 0 0 1   <- row 3
+###                                         1 0 1 1   <- row 4
+###                                         1 1 0 1 ] <- row 5 
+### =====================================================================================================================
+### Hxnew1 = [ 0 1 0 0   <- row 0     +    Hxnew2 = [ 0 0 0 0   <- 0        =    Hxnew = [ 0 1 0 0   <- row 0 
+###            0 0 1 0   <- row 1                     1 0 1 0   <- row 2                   1 0 0 0   <- row 1 + row 2
+###            1 0 0 1   <- row 3                     0 0 0 0   <- 0                       1 0 0 1   <- row 3
+###            1 0 1 0   <- row 2                     1 0 1 1   <- row 4                   0 0 0 1   <- row 2 + row 4
+###            1 1 0 1 ] <- row 5                     0 0 0 0 ] <- 0                       1 1 0 1 ] <- row 5 
+###                                                                                            ↑ support removed here
     
+    def split_chain_repetition_style(H, chain):
+        """
+        Given H and chain [r0, r1, ..., rk] (row indices in H),
+        return (H1, H2) with shape (m-1, n) such that H1 + H2 equals
+        H with repetition-style row-combines along the chain.
+        """
+        chain = list(map(int, chain))
+        if len(chain) < 2:
+            return H.tocsr(), sp.csr_matrix(H.shape, dtype=int)
+
+        H = H.tocsr()
+        m, n = H.shape
+
+        keep_rows = [r for r in range(m) if r != chain[-1]]
+        old_to_new = {old: new for new, old in enumerate(keep_rows)}
+
+        H1 = H[keep_rows, :].tocsr()
+        H2 = sp.lil_matrix(H1.shape, dtype=int)
+
+        for t in range(len(chain) - 1):
+            i = chain[t]
+            j = chain[t + 1]
+            if i == chain[-1]:
+                continue  # target row got removed
+            H2[old_to_new[i], :] = H.getrow(j)
+
+        return H1, H2.tocsr()
+
     # X
     Hxnew1 = code.hx.tocsr(copy=True)
     Hxnew2 = sp.csr_matrix(Hxnew1.shape, dtype=int)
+
     for Xcolorgroup in Xcombines:
         for (c1, c2) in color_groups[Xcolorgroup]:
             Hx_tot = add(Hxnew1, Hxnew2)
-            q = n**2 + m*c1 + c2
-            combinedstabs = list(map(int, stabs_touching_qubit(Hx_tot, q)))
-            if len(combinedstabs) < 2:
-                continue
-            last = combinedstabs[-1]
-            keep_rows = [r for r in range(Hx_tot.shape[0]) if r != last]
-            old_to_new = {old: new for new, old in enumerate(keep_rows)}
-            Hxnew1 = Hx_tot[keep_rows, :].tocsr()
-            Hxnew2_lil = sp.lil_matrix(Hxnew1.shape, dtype=int)
-            for t in range(len(combinedstabs) - 1):
-                i = combinedstabs[t]
-                j = combinedstabs[t + 1]
-                Hxnew2_lil[old_to_new[i], :] = Hx_tot.getrow(j)
-            Hxnew2 = Hxnew2_lil.tocsr()
-            
+            chain = list(map(int, stabs_touching_qubit(Hx_tot, n**2 + m*c1 + c2)))
+            Hxnew1, Hxnew2 = split_chain_repetition_style(Hx_tot, chain)
+
     # Z
     Hznew1 = code.hz.tocsr(copy=True)
     Hznew2 = sp.csr_matrix(Hznew1.shape, dtype=int)
+
     for Zcolorgroup in Zcombines:
         for (c1, c2) in color_groups[Zcolorgroup]:
             Hz_tot = add(Hznew1, Hznew2)
-            q = n**2 + m*c1 + c2
-            combinedstabs = list(map(int, stabs_touching_qubit(Hz_tot, q)))
-            if len(combinedstabs) < 2:
-                continue
-            last = combinedstabs[-1]
-            keep_rows = [r for r in range(Hz_tot.shape[0]) if r != last]
-            old_to_new = {old: new for new, old in enumerate(keep_rows)}
-            Hznew1 = Hz_tot[keep_rows, :].tocsr()
-            Hznew2_lil = sp.lil_matrix(Hznew1.shape, dtype=int)
-            for t in range(len(combinedstabs) - 1):
-                i = combinedstabs[t]
-                j = combinedstabs[t + 1]
-                Hznew2_lil[old_to_new[i], :] = Hz_tot.getrow(j)
-            Hznew2 = Hznew2_lil.tocsr()
+
+            chain = list(map(int, stabs_touching_qubit(Hz_tot, n**2 + m*c1 + c2)))
+            Hznew1, Hznew2 = split_chain_repetition_style(Hz_tot, chain)   
 
 ### Cutting other support
     Hxnew1 = Hxnew1.tolil(copy=True)

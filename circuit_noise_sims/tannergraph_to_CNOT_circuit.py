@@ -62,27 +62,27 @@ def generate_full_circuit(code, rounds, p1, p2, p_spam, seed):
     mx, n = code.hx.shape
     mz = code.hz.shape[0]
     data_qubits = range(n)
-    x_checks = range(n, n+mx)
-    z_checks = range(n+mx, n+mx+mz)
+    x_synd_qubits = range(n, n+mx)
+    z_synd_qubits = range(n+mx, n+mx+mz)
     c = stim.Circuit()
-    z_synd_circuit = generate_synd_circuit(code.hz, z_checks, 0, p1, p2, seed)
-    x_synd_circuit = generate_synd_circuit(code.hx, x_checks, 1, p1, p2, seed)
+    z_synd_circuit = generate_synd_circuit(code.hz, z_synd_qubits, 0, p1, p2, seed)
+    x_synd_circuit = generate_synd_circuit(code.hx, x_synd_qubits, 1, p1, p2, seed)
     
     # ancilla initialization errors
-    c.append("X_ERROR", z_checks, p_spam)
-    c.append("X_ERROR", x_checks, p_spam)
+    c.append("X_ERROR", z_synd_qubits, p_spam)
+    c.append("X_ERROR", x_synd_qubits, p_spam)
 
     ### syndrome extraction rounds
     c_se = stim.Circuit()
     # Z syndrome measurement
     c_se += z_synd_circuit
-    c_se.append("X_ERROR", z_checks, p_spam)
-    c_se.append("MR", z_checks)
-    c_se.append("X_ERROR", z_checks, p_spam)
+    c_se.append("X_ERROR", z_synd_qubits, p_spam)
+    c_se.append("MR", z_synd_qubits)
+    c_se.append("X_ERROR", z_synd_qubits, p_spam)
     # X syndrome measurement
     c_se += x_synd_circuit
-    c_se.append("R", x_checks)
-    c_se.append("X_ERROR", x_checks, p_spam)
+    c_se.append("R", x_synd_qubits)
+    c_se.append("X_ERROR", x_synd_qubits, p_spam)
 
     c += c_se * rounds
 
@@ -91,69 +91,74 @@ def generate_full_circuit(code, rounds, p1, p2, p_spam, seed):
     c.append("MR", data_qubits)
     return c
 
-def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed, measure_x=False):
+def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed):
     """
-    Like generate_full_circuit, but performs two-stage syndrome extraction:
-      - measure syndromes for H1 (stage 1) then H?2 (stage 2)
-      - MR between stages (so ancillas reset)
-      - effective syndrome is XOR(stage1, stage2) in post-processing.
-    If measure_x=False, X checks are still extracted in two stages but NOT recorded.
+    Order-enforced syndrome extraction
+    
+      repeat `rounds` times { 
+        (1) project Z syndromes for Hz1
+        (2) project Z syndromes for Hz2
+        (3) measure Z syndromes and reset ancillas 
+        (4) project X syndromes for Hx1
+        (5) project X syndromes for Hx2
+        (6) measure X syndromes and reset ancillas
+      }
+      (7) measure data qubits
+      
+    p1 : single-qubit depolarizing probability
+    p2 : two-qubit depolarizing probability
+    p_spam : syndrome qubit depolarizing probability
+    seed : seed forwarded to generate_synd_circuit
     """
-    mx, n = Hx1.shape
+    # n equal
+    assert Hx1.shape[1] == Hx2.shape[1]
+    assert Hx2.shape[1] == Hz1.shape[1]
+    assert Hz1.shape[1] == Hz2.shape[1]
+    
+    # mx, mz equal
+    assert Hx1.shape[0] == Hx2.shape[0]
+    assert Hz1.shape[0] == Hz2.shape[0]
+                                     
+    n = Hx1.shape[1]
+    mx = Hx1.shape[0]
     mz = Hz1.shape[0]
 
-    data_qubits = range(n)
-    x_checks = range(n, n + mx)
-    z_checks = range(n + mx, n + mx + mz)
+    data_qubits = range(n) # [0, n-1]
+    x_synd_qubits = range(n, n + mx) # [n, n+mx- 1]
+    z_synd_qubits = range(n + mx, n + mx + mz) # [n+mx, n+mx+mz-1]
 
+    # entire circuit
     c = stim.Circuit()
 
-    # ancilla initialization errors (once at start, like your original)
-    c.append("X_ERROR", z_checks, p_spam)
-    c.append("X_ERROR", x_checks, p_spam)
+    # ancilla initialization errors
+    c.append("X_ERROR", z_synd_qubits, p_spam)
+    c.append("X_ERROR", x_synd_qubits, p_spam)
 
-    # build the four subcircuits
-    z1 = generate_synd_circuit(Hz1, z_checks, stab_type=0, p1=p1, p2=p2, seed=seed)
-    z2 = generate_synd_circuit(Hz2, z_checks, stab_type=0, p1=p1, p2=p2, seed=seed + 1)
-
-    x1 = generate_synd_circuit(Hx1, x_checks, stab_type=1, p1=p1, p2=p2, seed=seed + 2)
-    x2 = generate_synd_circuit(Hx2, x_checks, stab_type=1, p1=p1, p2=p2, seed=seed + 3)
-
+    # CNOT syndrome extraction circuit for (1)-(6)
     c_se = stim.Circuit()
-    for _ in range(rounds):
-        # --- Z stage 1 ---
-        c_se += z1
-        c_se.append("X_ERROR", z_checks, p_spam)
-        c_se.append("MR", z_checks)              # records + resets
-        c_se.append("X_ERROR", z_checks, p_spam)
+        
+    # (1) project Z syndromes for Hz1
+    c_se += generate_synd_circuit(Hz1, z_synd_qubits, stab_type=0, p1=p1, p2=p2, seed=seed+0)
 
-        # --- Z stage 2 ---
-        c_se += z2
-        c_se.append("X_ERROR", z_checks, p_spam)
-        c_se.append("MR", z_checks)              # records + resets
-        c_se.append("X_ERROR", z_checks, p_spam)
+    # (2) project Z syndromes for Hz2
+    c_se += generate_synd_circuit(Hz2, z_synd_qubits, stab_type=0, p1=p1, p2=p2, seed=seed+1)
 
-        # --- X stage 1 ---
-        c_se += x1
-        c_se.append("X_ERROR", x_checks, p_spam)
-        if measure_x:
-            c_se.append("MR", x_checks)          # records + resets
-            c_se.append("X_ERROR", x_checks, p_spam)
-        else:
-            c_se.append("R", x_checks)           # reset only (no record)
-            c_se.append("X_ERROR", x_checks, p_spam)
+    # (3) measure Z syndromes and reset ancillas
+    c_se.append("X_ERROR", z_synd_qubits, p_spam)   # ancilla error before measurement
+    c_se.append("MR", z_synd_qubits)                # measure Z syndrome qubits + reset to |0>
+    c_se.append("X_ERROR", z_synd_qubits, p_spam)   # ancilla initialization error after resetting
+    
+    # (4) project X syndromes for Hx1
+    c_se += generate_synd_circuit(Hx1, x_synd_qubits, stab_type=1, p1=p1, p2=p2, seed=seed+2)
+    
+    # (5) project X syndromes for Hx2
+    c_se += generate_synd_circuit(Hx2, x_synd_qubits, stab_type=1, p1=p1, p2=p2, seed=seed+3)
+    
+    # (6) measure X syndromes and reset ancillas
+    c_se.append("R", x_synd_qubits)                # reset X syndrome q
 
-        # --- X stage 2 ---
-        c_se += x2
-        c_se.append("X_ERROR", x_checks, p_spam)
-        if measure_x:
-            c_se.append("MR", x_checks)
-            c_se.append("X_ERROR", x_checks, p_spam)
-        else:
-            c_se.append("R", x_checks)
-            c_se.append("X_ERROR", x_checks, p_spam)
-
-    c += c_se
+    # repeat (1)-(6) `rounds` times
+    c += c_se * rounds 
 
     # final data measurement
     c.append("X_ERROR", data_qubits, p_spam)

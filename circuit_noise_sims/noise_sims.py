@@ -7,7 +7,7 @@ if __name__ == '__main__':
     
     ### Reduced HGP from random (d_v, d_c), [n, k, d_min] classical code
     ### params: (n, d_v, d_c, d_min, min # of color groups)
-    Hx1, Hx2, Hz1, Hz2, code = get_reduced_random_code(20, 3, 5, 6, 5)
+    Hx1, Hx2, Hz1, Hz2, _ = get_reduced_random_code(20, 3, 5, 6, 5)
 
     # params: (Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed, measure_x)
     rounds = 2
