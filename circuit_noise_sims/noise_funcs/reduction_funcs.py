@@ -25,7 +25,7 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     def get_check_adj_graph(H):
         A = (H @ H.T != 0).astype(int) # #checks x #checks; 1 if checks share a bit; 0 otherwise
         np.fill_diagonal(A, 0)
-        G = nx.from_numpy_array(A, create_using=nx.Graph())
+        G = nx.from_numpy_array(A, create_using=nx.MultiGraph())
         return G
 
 
@@ -250,13 +250,12 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     Hznew2 = Hznew2.tocsr()
 
 ### Remove qubits that lost support
-    def remove_supportless_split(H1, H2):
-        Htot = add(H1, H2)
-        col_nnz = Htot.getnnz(axis=0)
-        keep_idx = np.where(col_nnz > 0)[0]
-        return H1[:, keep_idx].tocsr(), H2[:, keep_idx].tocsr()
-    Hxnew1, Hxnew2 = remove_supportless_split(Hxnew1, Hxnew2)
-    Hznew1, Hznew2 = remove_supportless_split(Hznew1, Hznew2)
+    def remove_supportless(Hx1, Hx2, Hz1, Hz2):
+        keep = np.where((add(Hx1, Hx2).getnnz(axis=0) + add(Hz1, Hz2).getnnz(axis=0)) > 0)[0]
+        return (Hx1[:, keep].tocsr(), Hx2[:, keep].tocsr(),
+                Hz1[:, keep].tocsr(), Hz2[:, keep].tocsr())
+    Hxnew1, Hxnew2, Hznew1, Hznew2 = remove_supportless(Hxnew1, Hxnew2, Hznew1, Hznew2)
+
     
 ### Reduced code
     Hxnew = add(Hxnew1, Hxnew2)
