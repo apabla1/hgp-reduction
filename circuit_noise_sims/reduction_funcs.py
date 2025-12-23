@@ -162,28 +162,23 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
 
     Xcombines, Zcombines = extract_combine_schedule_from_matching(max_weight_matching(color_groups_to_bipartite_graph(color_groups)))
        
-### Combining stabilizers 
-    Hznew1 = code.hz.tocsr(copy=True)
-    Hznew2 = sp.csr_matrix(Hznew1.shape, dtype=int)
+### **Combining stabilizers** 
+### Hxnew1 will contain the original rows of stabilizers, and Hxnew2 will contain the combined rows
+### Together, Hxnew = Hxnew1 + Hxnew2
+### Example: Xcombines = [2, 3, 5],  Hx = [ 0 1 0 0   <- row 1
+###                                         0 0 1 0   <- row 2
+###                                         1 0 1 0   <- row 3
+###                                         1 0 0 1   <- row 4
+###                                         1 0 1 1   <- row 5
+###                                         1 1 0 1 ] <- row 6 
+### -----------------------------------------------------------------------------------------------
+### Hxnew1 = [ 0 1 0 0     +    Hxnew2 = [ 0 0 0 0      =    Hxnew = [ 0 1 0 0   <- row 1 
+###            0 0 1 0                     1 0 1 0                     1 0 0 0   <- row 2 + row 3
+###            1 0 0 1                     0 0 0 0                     1 0 0 1   <- row 4
+###            1 0 1 0                     1 0 1 1                     0 0 0 1   <- row 3 + row 5
+###            1 1 0 1 ]                   0 0 0 0 ]                   1 1 0 1 ] <- row 6 
+###                                                                        ↑ support removed here
     
-    # Z
-    for Zcolorgroup in Zcombines:
-        for (c1, c2) in color_groups[Zcolorgroup]:
-            Hz_tot = add(Hznew1, Hznew2)
-            q = n**2 + m*c1 + c2
-            combinedstabs = list(map(int, stabs_touching_qubit(Hz_tot, q)))
-            if len(combinedstabs) < 2:
-                continue
-            last = combinedstabs[-1]
-            keep_rows = [r for r in range(Hz_tot.shape[0]) if r != last]
-            old_to_new = {old: new for new, old in enumerate(keep_rows)}
-            Hznew1 = Hz_tot[keep_rows, :].tocsr()
-            Hznew2_lil = sp.lil_matrix(Hznew1.shape, dtype=int)
-            for t in range(len(combinedstabs) - 1):
-                i = combinedstabs[t]
-                j = combinedstabs[t + 1]
-                Hznew2_lil[old_to_new[i], :] = Hz_tot.getrow(j)
-            Hznew2 = Hznew2_lil.tocsr()
     # X
     Hxnew1 = code.hx.tocsr(copy=True)
     Hxnew2 = sp.csr_matrix(Hxnew1.shape, dtype=int)
@@ -204,6 +199,27 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
                 j = combinedstabs[t + 1]
                 Hxnew2_lil[old_to_new[i], :] = Hx_tot.getrow(j)
             Hxnew2 = Hxnew2_lil.tocsr()
+            
+    # Z
+    Hznew1 = code.hz.tocsr(copy=True)
+    Hznew2 = sp.csr_matrix(Hznew1.shape, dtype=int)
+    for Zcolorgroup in Zcombines:
+        for (c1, c2) in color_groups[Zcolorgroup]:
+            Hz_tot = add(Hznew1, Hznew2)
+            q = n**2 + m*c1 + c2
+            combinedstabs = list(map(int, stabs_touching_qubit(Hz_tot, q)))
+            if len(combinedstabs) < 2:
+                continue
+            last = combinedstabs[-1]
+            keep_rows = [r for r in range(Hz_tot.shape[0]) if r != last]
+            old_to_new = {old: new for new, old in enumerate(keep_rows)}
+            Hznew1 = Hz_tot[keep_rows, :].tocsr()
+            Hznew2_lil = sp.lil_matrix(Hznew1.shape, dtype=int)
+            for t in range(len(combinedstabs) - 1):
+                i = combinedstabs[t]
+                j = combinedstabs[t + 1]
+                Hznew2_lil[old_to_new[i], :] = Hz_tot.getrow(j)
+            Hznew2 = Hznew2_lil.tocsr()
 
 ### Cutting other support
     Hxnew1 = Hxnew1.tolil(copy=True)
