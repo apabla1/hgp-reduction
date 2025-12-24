@@ -1,11 +1,23 @@
 import numpy as np
 from scipy.sparse import csr_matrix
-from ldpc import BpOsdDecoder
+from ldpc.bposd_decoder import BpOsdDecoder
 from ldpc.bplsd_decoder import BpLsdDecoder
-import circuit_utils
 
-def get_BPOSD_failures(code, par, p1, p2, p_spam, iters, rounds, seed):
-    # par = [bp_iters, osd_sweeps]
+def get_BP_failures(code, dec, circ, params, p2, iters, rounds):
+    """
+    code: css code object
+    dec: decoder type ('OSD' or 'LSD')
+    circ: stim circuit for syndrome extraction
+    params: decoder parameters -- [bp_iters, osd_order / lsd_order]
+    p2: two-qubit gate error probability
+    """
+    
+    if dec != 'OSD' and dec != 'LSD':
+        raise ValueError('Invalid decoder type')
+    if len(params) != 2:
+        raise ValueError('Invalid decoder paramsameters')
+    
+    # params = [bp_iters, osd_sweeps]
     H = code.hz.toarray()
     m, n = H.shape
     
@@ -17,26 +29,29 @@ def get_BPOSD_failures(code, par, p1, p2, p_spam, iters, rounds, seed):
         H_dec[m+j,n*(rounds+1)+j] = 1
     H_dec = csr_matrix(H_dec)
     
-    bpd = BpOsdDecoder(H_dec, error_rate = float(5*p2), max_iter = par[0], bp_method = 'ms', osd_method = 'osd_cs', osd_order = par[1])
-    # lsd = BpLsdDecoder(H_dec, error_channel = list(channel_probs), max_iter = par[0], bp_method = 'ms', osd_method = 'lsd_cs', osd_order = 0, schedule = 'serial')
+    if dec == 'OSD':
+        decoder = BpOsdDecoder(H_dec, error_rate=float(5*p2), max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1])
+    elif dec == 'LSD':
+        decoder = BpLsdDecoder(H_dec, error_rate=float(5*p2), max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
     
-    c = circuit_utils.generate_full_circuit(code, rounds=rounds, p1=p1, p2=p2, p_spam=p_spam, seed=seed)
-    sampler = c.compile_sampler()
+    sampler = circ.compile_sampler()
     failures = 0
     outer_reps = iters//256    # Stim samples a minimum of 256 shots at a time
     remainder = iters % 256
     for j in range(outer_reps+1):
+        print('\tIteration', j)
         num_shots = 256
         if j == outer_reps:
             num_shots = remainder
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
+            print('\t\tShot', i) if i % 10 == 0 else None
             syndromes = np.zeros([rounds+1,m], dtype=int)
             syndromes[:rounds] = output[i,:-n].reshape([rounds,m])
             syndromes[-1] = H @ output[i,-n:] % 2
             syndromes[1:] = syndromes[1:] ^ syndromes[:-1]   # Difference syndrome
-            bpd_output = np.reshape(bpd.decode(np.ravel(syndromes))[:n*(rounds+1)], [rounds+1,n])
-            correction = bpd_output.sum(axis=0) % 2
+            decoder_output = np.reshape(decoder.decode(np.ravel(syndromes))[:n*(rounds+1)], [rounds+1,n])
+            correction = decoder_output.sum(axis=0) % 2
             final_state = output[i,-n:] ^ correction
             if (code.lz@final_state%2).any():
                 failures += 1
