@@ -50,7 +50,7 @@ def generate_synd_circuit(H, checks, stab_type, p1, p2, seed):
 
 def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed):
     """
-    Order-enforced syndrome extraction. Only measures Z syndromes.
+    Order-enforced syndrome extraction.
     
       repeat `rounds` times { 
         (1) project Z syndromes for Hz1
@@ -58,7 +58,7 @@ def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed
         (3) measure Z syndromes and reset ancillas 
         (4) project X syndromes for Hx1
         (5) project X syndromes for Hx2
-        (6) reset X syndrome ancillas
+        (6) measure X syndromes and reset ancillas (we won't use these though)
       }
       (7) measure data qubits
       
@@ -109,8 +109,10 @@ def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed
     # (5) project X syndromes for Hx2
     c_se += generate_synd_circuit(Hx2, x_synd_qubits, stab_type=1, p1=p1, p2=p2, seed=seed+3)
     
-    # (6) reset X syndrome ancillas
-    c_se.append("R", x_synd_qubits)                  # reset X syndrome qubits
+    # (6) measure X syndromes and reset ancillas 
+    c_se.append("X_ERROR", x_synd_qubits, p_spam)   # ancilla error before measurement
+    c_se.append("MR", x_synd_qubits)                # measure X syndrome qubits + reset to |0>
+    c_se.append("X_ERROR", x_synd_qubits, p_spam)   # ancilla initialization error after resetting
 
     # repeat (1)-(6) `rounds` times
     c += c_se * rounds 
