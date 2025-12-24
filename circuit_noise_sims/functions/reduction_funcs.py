@@ -10,7 +10,7 @@ from ldpc.code_util import compute_code_parameters, compute_exact_code_distance
 from ldpc.mod2 import rank
 from networkx.algorithms.bipartite import configuration_model, biadjacency_matrix
 from matplotlib import rcParams
-from matrix_funcs import add
+from functions.matrix_funcs import add
 
 # suppress exact_code_distance warning
 warnings.filterwarnings("ignore", category=UserWarning, module=r"ldpc\.code_util\.code_util")
