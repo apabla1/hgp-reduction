@@ -3,12 +3,12 @@ from scipy.sparse import csr_matrix
 from ldpc.bposd_decoder import BpOsdDecoder
 from ldpc.bplsd_decoder import BpLsdDecoder
 
-def get_BP_failures(code, dec, circ, params, p2, iters, rounds):
+def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     """
     code: css code object
     dec: decoder type ('OSD' or 'LSD')
     circ: stim circuit for syndrome extraction
-    params: decoder parameters -- [bp_iters, osd_order / lsd_order]
+    params: decoder parameters -- [bp_shots, osd_order / lsd_order]
     p2: two-qubit gate error probability
     """
     
@@ -17,7 +17,6 @@ def get_BP_failures(code, dec, circ, params, p2, iters, rounds):
     if len(params) != 2:
         raise ValueError('Invalid decoder paramsameters')
     
-    # params = [bp_iters, osd_sweeps]
     H = code.hz.toarray()
     m, n = H.shape
     
@@ -35,17 +34,21 @@ def get_BP_failures(code, dec, circ, params, p2, iters, rounds):
         decoder = BpLsdDecoder(H_dec, error_rate=float(5*p2), max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
     
     sampler = circ.compile_sampler()
-    failures = 0
-    outer_reps = iters//256    # Stim samples a minimum of 256 shots at a time
-    remainder = iters % 256
-    for j in range(outer_reps+1):
-        print(f"\tIteration {j} of {outer_reps+1}")
-        num_shots = 256
-        if j == outer_reps:
-            num_shots = remainder
+    num_failures = 0
+    shot_num = 0
+
+    # For sampling -- Stim samples a minimum of 256 shots at a time
+    # batch_sizes = [256, 256, ..., shots // 256, shots % 256]
+    batch_sizes = [256] * (shots // 256)
+    remainder = shots % 256
+    if remainder:
+        batch_sizes.append(remainder)
+       
+    for num_shots in batch_sizes:
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
-            print(f"\t\tShot {i} of {num_shots}") if i % 50 == 0 else None
+            shot_num += 1
+            print(f"\tShot {shot_num} of {shots}") if shot_num % (max(1, shots // 25)) == 0 else None
             syndromes = np.zeros([rounds+1,m], dtype=int)
             syndromes[:rounds] = output[i,:-n].reshape([rounds,m])
             syndromes[-1] = H @ output[i,-n:] % 2
@@ -54,6 +57,6 @@ def get_BP_failures(code, dec, circ, params, p2, iters, rounds):
             correction = decoder_output.sum(axis=0) % 2
             final_state = output[i,-n:] ^ correction
             if (code.lz@final_state%2).any():
-                failures += 1
+                num_failures += 1
                 
-    return failures
+    return num_failures
