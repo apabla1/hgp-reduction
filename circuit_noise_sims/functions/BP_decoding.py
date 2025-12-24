@@ -47,10 +47,15 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     for num_shots in batch_sizes:
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
+            print(f"\tShot {shot_num} of {shots}") if shot_num == 0 else None
             shot_num += 1
             print(f"\tShot {shot_num} of {shots}") if shot_num % (max(1, shots // 25)) == 0 else None
-            syndromes = np.zeros([rounds+1,m], dtype=int)
-            syndromes[:rounds] = output[i,:-n].reshape([rounds,m])
+            syndromes = np.zeros([rounds+1,m], dtype=int) 
+            meas = output[i, :-n]  # all ancilla measurement bits (Z then X each round)
+            per_round = meas.size // rounds  # should be mz + mx
+            meas = meas.reshape(rounds, per_round)
+            z_meas = meas[:, :m]
+            syndromes[:rounds] = z_meas
             syndromes[-1] = H @ output[i,-n:] % 2
             syndromes[1:] = syndromes[1:] ^ syndromes[:-1]   # Difference syndrome
             decoder_output = np.reshape(decoder.decode(np.ravel(syndromes))[:n*(rounds+1)], [rounds+1,n])
