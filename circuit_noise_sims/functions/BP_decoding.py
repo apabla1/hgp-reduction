@@ -58,11 +58,11 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     for num_shots in batch_sizes:
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
-            print("\tShot 0 of {shots} (Timer start)") if shot_num == 0 else None
+            print(f"\tShot 0 of {shots} (Timer start)") if shot_num == 0 else None
             shot_num += 1
             if shot_num % max(1, shots // 25) == 0 or shot_num == shots:
                 elapsed = time.perf_counter() - t0
-                rate = shot_num / elapsed if elapsed > 0 else 0.0
+                rate = shot_num / elapsed
                 eta = (shots - shot_num) / rate if rate > 0 else float("inf")
                 print(f"\tShot {shot_num} of {shots} (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
             syndromes = np.zeros([rounds+1,m], dtype=int) 
