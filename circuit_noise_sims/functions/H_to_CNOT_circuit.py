@@ -2,7 +2,7 @@ import numpy as np
 import stim
 from networkx import relabel_nodes
 from networkx.algorithms import bipartite
-from noise_funcs.edge_coloring import edge_color_bipartite
+from functions.edge_coloring import edge_color_bipartite
 
 def generate_synd_circuit(H, checks, stab_type, p1, p2, seed):
     """
