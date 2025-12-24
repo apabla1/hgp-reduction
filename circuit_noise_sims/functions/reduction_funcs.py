@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 import networkx as nx
+import warnings
 from scipy.sparse import csc_matrix, csr_matrix, lil_matrix
 from bposd.hgp import hgp
 from bposd.css import css_code
@@ -9,6 +10,10 @@ from ldpc.code_util import compute_code_parameters, compute_exact_code_distance
 from ldpc.mod2 import rank
 from networkx.algorithms.bipartite import configuration_model, biadjacency_matrix
 from matplotlib import rcParams
+from matrix_funcs import add
+
+# suppress exact_code_distance warning
+warnings.filterwarnings("ignore", category=UserWarning, module=r"ldpc\.code_util\.code_util")
 
 def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     """    
@@ -66,12 +71,12 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
             #print(f"# colors: {len(coloring)}")
             if len(coloring) <= max_coloring:
                 break
-    print(f"Classical code: [n, k, d] = {compute_code_parameters(H)}")
+    print(f"\tClassical code: [n, k, d] = {compute_code_parameters(H)}")
     
 ### Create HGP code from two of the random classical code
     code = hgp(h1=H, h2=H, compute_distance=True)
     code.name = 'Random Code HGP'
-    print(f"HGP Code: [[{code.N}, {code.K}, {code.D}]]")
+    print(f"\tHGP Code: [[{code.N}, {code.K}, {code.D}]]")
     
 ### Create color groups of HGP check-type qubits that come from the coloring of the classical checks
     m, n = H.shape
@@ -97,15 +102,6 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
         Returns the indices of the stabilizers in H that have support on qubit at index q.
         """
         return H.getcol(q).nonzero()[0]
-
-    def add(H1, H2):
-        """
-        Adds two binary csr matrices over F2. 
-        """
-        H = (H1 + H2).tocsr()
-        H.data %= 2
-        H.eliminate_zeros()
-        return H
     
 ### Optimizing size of color groups.
     def color_groups_to_bipartite_graph(color_groups):
@@ -262,6 +258,6 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     Hznew = add(Hznew1, Hznew2)
     newcode = css_code(hx=Hxnew, hz=Hznew)
     newcode.name = 'Transformed code'
-    print(f"Reduced code: [[n', k', d']] = [[{newcode.N}, {newcode.K}, {code.D}]]")
+    print(f"\tReduced code: [[n', k', d']] = [[{newcode.N}, {newcode.K}, {code.D}]]")
     
     return Hxnew1, Hxnew2, Hznew1, Hznew2, newcode

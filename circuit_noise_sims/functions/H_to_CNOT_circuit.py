@@ -1,18 +1,20 @@
 import numpy as np
-from edge_coloring import edge_color_bipartite
 import stim
 from networkx import relabel_nodes
 from networkx.algorithms import bipartite
+from noise_funcs.edge_coloring import edge_color_bipartite
 
 def generate_synd_circuit(H, checks, stab_type, p1, p2, seed):
     """
-    Stim (X or Z) syndrome extraction circuit for given an edge-colored Tanner graph
+    Stim (X or Z) syndrome extraction circuit given a PCM H.
+    Utilizes edge coloring of the Tanner graph to enforce order of parallel CNOTs.
+    (An edge in the Tanner graph correspond to a CNOT gate; edges of the same color can be operated in parallel)
     
     :param H: Hx or Hz
     :param checks: qubit indices for the m(X or Z) syndrome qubits 
     :param stab_type: T/F (T = X stabilizers; F = Z stabilizers)
-    :param p1: single-qubit depolarizing probability
-    :param p2: two-qubit depolarizing probability
+    :param p1: single-qubit gate error probability
+    :param p2: two-qubit gate error probability
     :param seed: randomizing the order of parallel CNOTs based on coloring
     """
     m, n = H.shape
@@ -41,7 +43,6 @@ def generate_synd_circuit(H, checks, stab_type, p1, p2, seed):
         c.append("DEPOLARIZE1", data_qbts, p1)
 
     # combine the two together
-
     if stab_type:
         c.append("H", checks)
         c.append("DEPOLARIZE1", checks, p1)
@@ -67,9 +68,7 @@ def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed
     seed : seed forwarded to generate_synd_circuit
     """
     # n equal
-    assert Hx1.shape[1] == Hx2.shape[1]
-    assert Hx2.shape[1] == Hz1.shape[1]
-    assert Hz1.shape[1] == Hz2.shape[1]
+    assert Hx1.shape[1] == Hx2.shape[1] == Hz1.shape[1] == Hz2.shape[1]
     
     # mx, mz equal
     assert Hx1.shape[0] == Hx2.shape[0]

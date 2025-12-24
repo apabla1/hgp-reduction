@@ -2,21 +2,22 @@ import networkx as nx
 from collections import namedtuple
 from typing import List, Set
 
-
-def _canonicalize_edge(e):
+def canonicalize_edge(e):
     (u,v) = e[:2] # [:2] in case the graph is weighted
     (u,v) = (u,v) if u < v else (v,u)
     return (u,v) + e[2:]
 
-def _edges_with_keys(G : nx.Graph):
+def edges_with_keys(G : nx.Graph):
     try:
         return G.edges(keys=True)
     except TypeError:
         return G.edges()
 
 def edge_color_bipartite(bipartite_graph : nx.Graph) -> List[Set[int]]:
-    '''Given a bipartite graph, return an optimal edge coloring in time O(|VG||EG|).
-    This uses the construction in Konz's proof that all bipartite graphs are class 1.'''
+    """
+    Given a bipartite graph, return an optimal edge coloring in time O(|VG||EG|).
+    This uses the construction in Konz's proof that all bipartite graphs are class 1.
+    """
 
     G = bipartite_graph.to_undirected()
 
@@ -31,7 +32,7 @@ def edge_color_bipartite(bipartite_graph : nx.Graph) -> List[Set[int]]:
     ColorSet = namedtuple('ColorSets', ['vertices', 'edges'])
     colorings = [ColorSet(set(), set()) for _ in range(graph_degree)]
 
-    for edge in _edges_with_keys(G):
+    for edge in edges_with_keys(G):
         (u, v) = edge[:2]
         u_set = None
         try:
@@ -44,11 +45,10 @@ def edge_color_bipartite(bipartite_graph : nx.Graph) -> List[Set[int]]:
             # Compute an edge 2-coloring in the subgraph v_set \cup u_set
             # The new sets are the edge colors of this subgraph
 
-
             def filter_edge(u,v,key=None):
                 # Reassemble the edge
                 edge = (u,v) if key is None else (u,v,key)
-                return _canonicalize_edge(edge) in u_set.edges or _canonicalize_edge(edge) in v_set.edges
+                return canonicalize_edge(edge) in u_set.edges or canonicalize_edge(edge) in v_set.edges
             
             uv_subgraph = nx.subgraph_view(G,
                 filter_node = lambda x: (x in u_set.vertices or x in v_set.vertices),
@@ -61,10 +61,10 @@ def edge_color_bipartite(bipartite_graph : nx.Graph) -> List[Set[int]]:
             u_to_v_set = set()
             v_to_u_set = set()
             for uv_edge in nx.edge_dfs(uv_subgraph, v):
-                if _canonicalize_edge(uv_edge) in u_set.edges:
-                    u_to_v_set.add(_canonicalize_edge(uv_edge))
+                if canonicalize_edge(uv_edge) in u_set.edges:
+                    u_to_v_set.add(canonicalize_edge(uv_edge))
                 else:
-                    v_to_u_set.add(_canonicalize_edge(uv_edge))
+                    v_to_u_set.add(canonicalize_edge(uv_edge))
 
             u_to_v_vertices = set(v for edges in u_to_v_set for v in edges)
             v_to_u_vertices = set(v for edges in v_to_u_set for v in edges)
@@ -82,7 +82,7 @@ def edge_color_bipartite(bipartite_graph : nx.Graph) -> List[Set[int]]:
         # Add the original edge
         u_set.vertices.add(u)
         u_set.vertices.add(v)
-        u_set.edges.add(_canonicalize_edge(edge))
+        u_set.edges.add(canonicalize_edge(edge))
     
     return [v.edges for v in colorings]
 

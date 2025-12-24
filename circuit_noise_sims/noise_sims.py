@@ -1,28 +1,41 @@
-from noise_funcs.reduction_funcs import get_reduced_random_code
-from noise_funcs.H_to_CNOT_circuit import generate_synd_circuit, generate_full_circuit_split
 from bposd.css import css_code
+from functions.reduction_funcs import get_reduced_random_code
+from functions.H_to_CNOT_circuit import generate_synd_circuit, generate_full_circuit_split
+from functions.BP_decoding import get_BP_failures
+from functions.matrix_funcs import add
+
+### ----------------- Parameters -- adjust these! -----------------
+p1 = 1e-2 # single-qubit error probability
+p2 = 1e-3 # two-qubit error probability
+p_spam = 1e-3 # measurement error probability
+rounds = 2 # rounds of syndrome extraction
+shots = 10000 # number of shots for BP decoding
+dec = 'LSD' # using OSD or LSD decoding
+max_iter = 200 # maximum number of iterations for BP decoding
+osd_lsd_order = 0 # for OSD, how deep the OSD search goes;
+                  # for LSD, how many bits in the neighborhood that post-processing explores
+### ---------------------------------------------------------------
 
 if __name__ == '__main__':
     
-    ### Reduced HGP from random (d_v, d_c), [n, k, d_min] classical code
-    ### params: (n, d_v, d_c, d_min, min # of color groups)
+### Reduced HGP from random (d_v, d_c), [n, k, d_min] classical code
+    # params: (n, d_v, d_c, d_min, min # of color groups)
+    print("Generating reduced HGP from random LDPC code...")
     Hx1, Hx2, Hz1, Hz2, _ = get_reduced_random_code(20, 3, 5, 6, 5)
     
     # dimensions check
-    assert Hx1.shape[0] == Hz1.shape[0]
     assert Hx1.shape[1] == Hx2.shape[1] == Hz2.shape[1] == Hz1.shape[1]
-    
-    mx = Hx1.shape[0]
-    mz = Hz1.shape[0]
-    n = Hx1.shape[1]
 
+### Generate CNOT syndrome circuit, enforcing correct ordering for hook errors
     # params: (Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed)
-    rounds = 2
-    c = generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, 1e-3, 1e-2, 1e-3, 1234)
+    print("Generating CNOT syndrome circuit...")
+    circ = generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, 1234)
    
-    # sample 
-    shots = 200
-    samples = c.compile_sampler().sample(shots)
+### Sample CNOT circuit and decoding
+    # params: (code, dec, circ, par, p2, shots, rounds)
+    print("Sampling CNOT circuit and decoding... (This may take a while)")
+    code = css_code(hx = add(Hx1, Hx2), hz = add(Hz1, Hz2))
+    failures = get_BP_failures(code, dec, circ, [max_iter, osd_lsd_order], p2, shots, rounds)
 
-    z_syndrome = samples[:, :rounds*mz].reshape(shots, rounds, mz)
-    final_data = samples[:, rounds*mz : rounds*mz + n]
+    print(f"Number of failed shots: {failures} out of {shots}")
+    print(f"==> Logical error rate is approx. {failures/shots:.4f}")
