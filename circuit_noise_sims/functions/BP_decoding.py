@@ -39,13 +39,13 @@ def get_BP_failures(code, dec, circ, params, p2, iters, rounds):
     outer_reps = iters//256    # Stim samples a minimum of 256 shots at a time
     remainder = iters % 256
     for j in range(outer_reps+1):
-        print('\tIteration', j)
+        print(f"\tIteration {j} of {outer_reps+1}")
         num_shots = 256
         if j == outer_reps:
             num_shots = remainder
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
-            print('\t\tShot', i) if i % 10 == 0 else None
+            print(f"\t\tShot {i} of {num_shots}") if i % 50 == 0 else None
             syndromes = np.zeros([rounds+1,m], dtype=int)
             syndromes[:rounds] = output[i,:-n].reshape([rounds,m])
             syndromes[-1] = H @ output[i,-n:] % 2
