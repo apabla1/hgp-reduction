@@ -260,4 +260,4 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     newcode.name = 'Transformed code'
     print(f"\tReduced code: [[n', k', d']] = [[{newcode.N}, {newcode.K}, {code.D}]]")
     
-    return Hxnew1, Hxnew2, Hznew1, Hznew2, newcode
+    return Hxnew1, Hxnew2, Hznew1, Hznew2, newcode, newcode.N, newcode.K, code.D
