@@ -40,7 +40,7 @@ def generate_synd_circuit(H, checks, stab_type, p1, p2, seed):
             targets = g[::-1] if stab_type else g
             c.append("CX", targets)
             c.append("DEPOLARIZE2", targets, p2)
-        c.append("DEPOLARIZE1", data_qbts, p1)
+        #c.append("DEPOLARIZE1", data_qbts, p1)
 
     # combine the two together
     if stab_type:
