@@ -11,7 +11,7 @@ def _fmt_secs(sec: float) -> str:
     h, m = divmod(m, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
-def num_failures_BP(code, dec, circ, params, p2, p_data, p_meas, shots, rounds):
+def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     """
     code: css code object
     dec: decoder type ('OSD' or 'LSD')
@@ -41,11 +41,10 @@ def num_failures_BP(code, dec, circ, params, p2, p_data, p_meas, shots, rounds):
     H_dec = csr_matrix(H_dec)
     
 ### Decoder
-    err_channel = np.concatenate([np.full(n*(rounds+1), p_data, dtype=float), np.full(m*rounds, p_meas, dtype=float)])
     if dec == 'OSD':
-        decoder = BpOsdDecoder(H_dec, error_channel=err_channel.tolist(), max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1], schedule='parallel')
+        decoder = BpOsdDecoder(H_dec, error_rate = p2, max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1], schedule='parallel')
     elif dec == 'LSD':
-        decoder = BpLsdDecoder(H_dec, error_channel=err_channel.tolist(), max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
+        decoder = BpLsdDecoder(H_dec, error_rate = p2, max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
 
 ### Sampling
     sampler = circ.compile_sampler()

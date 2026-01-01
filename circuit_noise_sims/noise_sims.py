@@ -49,7 +49,7 @@ if __name__ == '__main__':
 ### Sample CNOT circuit and decoding
     # params: (code, dec, circ, par, p2, p_data, p_meas, shots, rounds)
     print(f"Sampling CNOT circuit and decoding via BP-{dec} ... (This may take a while)")
-    failures = num_failures_BP(code, dec, circ, [max_iter, osd_lsd_order], p2, 0.05, 0.05, shots, rounds)
+    failures = num_failures_BP(code, dec, circ, [max_iter, osd_lsd_order], p2, shots, rounds)
 
     print(f"Number of failed shots: {failures} out of {shots}")
     print(f"==> Logical error rate is approx. {failures/shots:.4f}")
