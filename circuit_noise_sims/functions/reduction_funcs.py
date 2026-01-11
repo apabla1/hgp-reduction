@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.sparse as sp
 import networkx as nx
+import math
 import warnings
 from scipy.sparse import csc_matrix, csr_matrix, lil_matrix
 from bposd.hgp import hgp
@@ -15,9 +16,26 @@ from functions.matrix_funcs import add
 # suppress exact_code_distance warning
 warnings.filterwarnings("ignore", category=UserWarning, module=r"ldpc\.code_util\.code_util")
 
-def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
+### Helpers to create the random classical code
+def get_check_adj_graph(H):
+    A = (H @ H.T != 0).astype(int) # #checks x #checks; 1 if checks share a bit; 0 otherwise
+    np.fill_diagonal(A, 0)
+    G = nx.from_numpy_array(A, create_using=nx.MultiGraph())
+    return G
+
+def get_check_coloring(H):
+    G = get_check_adj_graph(H)
+    color_dict = nx.greedy_color(G, strategy='independent_set')
+    
+    num_colors = max(list(color_dict.values())) + 1
+    coloring = []
+    for i in range(num_colors):
+        coloring.append([key for key, value in color_dict.items() if value == i])
+    return coloring
+
+def get_random_code(n, d_v, d_c, min_dist, max_coloring):
     """    
-    Return a random reduced HGP code.
+    Return a random HGP code.
     
     :param n: #bits
     :param d_v: how many checks each bit participates in
@@ -25,24 +43,6 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
     :param min_dist: minimum distance of classical code 
     :param max_coloring: maximum number of color groups in classical code
     """
-
-### Helpers to create the random classical code
-    def get_check_adj_graph(H):
-        A = (H @ H.T != 0).astype(int) # #checks x #checks; 1 if checks share a bit; 0 otherwise
-        np.fill_diagonal(A, 0)
-        G = nx.from_numpy_array(A, create_using=nx.MultiGraph())
-        return G
-
-
-    def get_check_coloring(H):
-        G = get_check_adj_graph(H)
-        color_dict = nx.greedy_color(G, strategy='independent_set')
-        
-        num_colors = max(list(color_dict.values())) + 1
-        coloring = []
-        for i in range(num_colors):
-            coloring.append([key for key, value in color_dict.items() if value == i])
-        return coloring
 
 ### Create random classical code
     tries = 10000
@@ -73,10 +73,21 @@ def get_reduced_random_code(n, d_v, d_c, min_dist, max_coloring):
                 break
     print(f"\tClassical code: [n, k, d] = {compute_code_parameters(H)}")
     
-### Create HGP code from two of the random classical code
+    ### Create HGP code from two of the classical code
     code = hgp(h1=H, h2=H, compute_distance=True)
     code.name = 'Random Code HGP'
     print(f"\tHGP Code: [[{code.N}, {code.K}, {code.D}]]")
+    
+    return code, H
+
+def get_reduced_code(code, H):
+    """    
+    Return a reduced HGP code given a HGP code made from two of the same parity-check matrix.
+    
+    :param code: HGP code
+    :param H: the PCM used to create `code`
+    """
+    coloring = get_check_coloring(H) # coloring of the code
     
 ### Create color groups of HGP check-type qubits that come from the coloring of the classical checks
     m, n = H.shape
