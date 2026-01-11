@@ -48,6 +48,48 @@ def generate_synd_circuit(H, checks, stab_type, p1, p2, seed):
         c.append("DEPOLARIZE1", checks, p1)
     return c
 
+def generate_full_circuit(code, rounds, p1, p2, p_spam, seed):
+    """
+    Non-ordered syndrome extraction.
+    
+    :param code: code to generate circuit for
+    :param rounds: rounds of measurement
+    :param p1: single-qubit depolarizing probability
+    :param p2: two-qubit depolarizing probability
+    :param p_spam: syndrome qubit depolarizing probability
+    :param seed: seed forwarded to generate_synd_circuit
+    """
+    mx, n = code.hx.shape
+    mz = code.hz.shape[0]
+    data_qubits = range(n)
+    x_checks = range(n, n+mx)
+    z_checks = range(n+mx, n+mx+mz)
+    c = stim.Circuit()
+    z_synd_circuit = generate_synd_circuit(code.hz, z_checks, 0, p1, p2, seed)
+    x_synd_circuit = generate_synd_circuit(code.hx, x_checks, 1, p1, p2, seed)
+    # ancilla initialization errors
+    c.append("X_ERROR", z_checks, p_spam)
+    c.append("X_ERROR", x_checks, p_spam)
+
+    # syndrome extraction rounds
+    c_se = stim.Circuit()
+    # Z syndrome measurement
+    c_se += z_synd_circuit
+    c_se.append("X_ERROR", z_checks, p_spam)
+    c_se.append("MR", z_checks)
+    c_se.append("X_ERROR", z_checks, p_spam)
+    # X syndrome measurement
+    c_se += x_synd_circuit
+    c_se.append("R", x_checks)
+    c_se.append("X_ERROR", x_checks, p_spam)
+
+    c += c_se * rounds
+
+    # Final transversal measurement
+    c.append("X_ERROR", data_qubits, p_spam)
+    c.append("MR", data_qubits)
+    return c
+
 def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed):
     """
     Order-enforced syndrome extraction.
@@ -61,11 +103,11 @@ def generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed
         (6) measure X syndromes and reset ancillas (we won't use these though)
       }
       (7) measure data qubits
-      
-    p1 : single-qubit depolarizing probability
-    p2 : two-qubit depolarizing probability
-    p_spam : syndrome qubit depolarizing probability
-    seed : seed forwarded to generate_synd_circuit
+    
+    :param p1: single-qubit depolarizing probability
+    :param p2: two-qubit depolarizing probability
+    :param p_spam: syndrome qubit depolarizing probability
+    :param seed: seed forwarded to generate_synd_circuit
     """
     # n equal
     assert Hx1.shape[1] == Hx2.shape[1] == Hz1.shape[1] == Hz2.shape[1]
