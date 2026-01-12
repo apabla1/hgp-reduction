@@ -42,9 +42,10 @@ if __name__ == '__main__':
     
 ### Parameters -- adjustable!
     args = parse_args()
-    p1 = 1e-3 # single-qubit error probability
-    p2 = 1e-3 # two-qubit error probability
-    p_spam = 1e-3 # measurement error probability
+    p = 1e-3
+    p1 = p/10 # single-qubit error probability
+    p2 = p # two-qubit error probability
+    p_spam = p # measurement error probability
     rounds = d # rounds of syndrome extraction
     shots = args.shots # number of shots for BP decoding
     dec = args.decode # using OSD or LSD decoding
