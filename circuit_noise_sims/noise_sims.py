@@ -53,7 +53,7 @@ if __name__ == '__main__':
     osd_lsd_order = args.order # for OSD, how deep the OSD search goes;
                                # for LSD, how many bits in the neighborhood that post-processing explores
     print(f"Noise parameters: p1={p1}, p2={p2}, p_spam={p_spam}")
-    
+  
 ### Sample unreduced code
     print("Generating **unreduced** CNOT syndrome circuit...")
     unreduced_circ = generate_full_circuit(unreduced_code, rounds, p1, p2, p_spam, 1234)

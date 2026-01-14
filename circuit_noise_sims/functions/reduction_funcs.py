@@ -179,12 +179,12 @@ def get_reduced_code(code, H):
 ###                                         1 0 1 1   <- row 4
 ###                                         1 1 0 1 ] <- row 5 
 ### =====================================================================================================================
-### Hxnew1 = [ 0 1 0 0   <- row 0     +    Hxnew2 = [ 0 0 0 0   <- 0        =    Hxnew = [ 0 1 0 0   <- row 0 
-###            0 0 1 0   <- row 1                     1 0 1 0   <- row 2                   1 0 0 0   <- row 1 + row 2
-###            1 0 0 1   <- row 3                     0 0 0 0   <- 0                       1 0 0 1   <- row 3
-###            1 0 1 0   <- row 2                     1 0 1 1   <- row 4                   0 0 0 1   <- row 2 + row 4
-###            1 1 0 1 ] <- row 5                     0 0 0 0 ] <- 0                       1 1 0 1 ] <- row 5 
-###                                                                                            ↑ support removed here
+### Hxnew1 = [ 0 1 0 0   <- row 0     +     Hxnew2 = [ 0 0 0 0   <- 0        =     Hxnew = [ 0 1 0 0   <- row 0 
+###            0 0 1 0   <- row 1                      1 0 1 0   <- row 2                    1 0 0 0   <- row 1 + row 2
+###            1 0 0 1   <- row 3                      0 0 0 0   <- 0                        1 0 0 1   <- row 3
+###            1 0 1 0   <- row 2                      1 0 1 1   <- row 4                    0 0 0 1   <- row 2 + row 4
+###            1 1 0 1 ] <- row 5                      0 0 0 0 ] <- 0                        1 1 0 1 ] <- row 5 
+###                                                                                              ↑ support removed here
     
     def split_chain_repetition_style(H, chain):
         """
