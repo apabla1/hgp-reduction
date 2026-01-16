@@ -136,9 +136,10 @@ if __name__ == '__main__':
 
     for ax in (axL, axR):
         ax.set_xticks(ps, [f"{p:g}" for p in ps])
-        ax.set_xlabel("p (two-qubit error prob)")
+        ax.set_xlabel("p")
 
     axL.set_ylabel("Logical error rate (LER)")
+    axL.legend()
     axR.legend()
 
     plt.tight_layout()
