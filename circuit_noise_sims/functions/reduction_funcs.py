@@ -11,74 +11,11 @@ from ldpc.code_util import compute_code_parameters, compute_exact_code_distance
 from ldpc.mod2 import rank
 from networkx.algorithms.bipartite import configuration_model, biadjacency_matrix
 from matplotlib import rcParams
+from functions.codes.random_codes import get_check_adj_graph, get_check_coloring
 from functions.matrix_funcs import add
 
 # suppress exact_code_distance warning
 warnings.filterwarnings("ignore", category=UserWarning, module=r"ldpc\.code_util\.code_util")
-
-### Helpers to create the random classical code
-def get_check_adj_graph(H):
-    A = (H @ H.T != 0).astype(int) # #checks x #checks; 1 if checks share a bit; 0 otherwise
-    np.fill_diagonal(A, 0)
-    G = nx.from_numpy_array(A, create_using=nx.MultiGraph())
-    return G
-
-def get_check_coloring(H):
-    G = get_check_adj_graph(H)
-    color_dict = nx.greedy_color(G, strategy='independent_set')
-    
-    num_colors = max(list(color_dict.values())) + 1
-    coloring = []
-    for i in range(num_colors):
-        coloring.append([key for key, value in color_dict.items() if value == i])
-    return coloring
-
-def get_random_code(n, d_v, d_c, min_dist, max_coloring):
-    """    
-    Return a random HGP code.
-    
-    :param n: #bits
-    :param d_v: how many checks each bit participates in
-    :param d_c: how many bits each check involves
-    :param min_dist: minimum distance of classical code 
-    :param max_coloring: maximum number of color groups in classical code
-    """
-
-### Create random classical code
-    tries = 10000
-    coloring = []
-    
-    for i in range(tries):
-        
-        # number of checks
-        m = int(n * d_v / d_c)
-        
-        # random bipartite graph that we model as the Tanner graph
-        graph = configuration_model(
-            d_v*np.ones(n,dtype=int), 
-            d_c*np.ones(m,dtype=int), 
-            create_using=nx.Graph())
-        
-        # create PCM from Tanner graph
-        H = biadjacency_matrix(graph, row_order=np.arange(n)).T.toarray()
-        
-        # (1) *ensure the H is full rank, (2) make sure that the code distance is
-        # >= `min_dist`, (3) make sure that the coloring is <= `max_coloring`
-        d = compute_exact_code_distance(H)
-        #print(f"distance: {d}")
-        if d >= min_dist and rank(H) == H.shape[0]:
-            coloring = get_check_coloring(H)
-            #print(f"# colors: {len(coloring)}")
-            if len(coloring) <= max_coloring:
-                break
-    print(f"\tClassical code: [n, k, d] = {compute_code_parameters(H)}")
-    
-    ### Create HGP code from two of the classical code
-    code = hgp(h1=H, h2=H, compute_distance=True)
-    code.name = 'Random Code HGP'
-    print(f"\tHGP Code: [[{code.N}, {code.K}, {code.D}]]")
-    
-    return code, H
 
 def get_reduced_code(code, H):
     """    
@@ -186,7 +123,7 @@ def get_reduced_code(code, H):
 ###            1 1 0 1 ] <- row 5                      0 0 0 0 ] <- 0                        1 1 0 1 ] <- row 5 
 ###                                                                                              ↑ support removed here
     
-    def split_chain_repetition_style(H, chain):
+    def split_chain_repetition_style(H1, H2, chain):
         """
         Given H and chain [r0, r1, ..., rk] (row indices in H),
         return (H1, H2) with shape (m-1, n) such that H1 + H2 equals
@@ -194,46 +131,61 @@ def get_reduced_code(code, H):
         """
         chain = list(map(int, chain))
         if len(chain) < 2:
-            return H.tocsr(), sp.csr_matrix(H.shape, dtype=int)
-
-        H = H.tocsr()
-        m, n = H.shape
-
-        keep_rows = [r for r in range(m) if r != chain[-1]]
-        old_to_new = {old: new for new, old in enumerate(keep_rows)}
-
-        H1 = H[keep_rows, :].tocsr()
-        H2 = sp.lil_matrix(H1.shape, dtype=int)
-
+            return H1.tocsr(), H2.tocsr()
+    
+        H1 = H1.tocsr()
+        H2 = H2.tocsr()
+        m, n = H1.shape
+        assert H2.shape == (m, n)
+    
+        r_last = chain[-1]
+        keep_rows = [r for r in range(m) if r != r_last]
+    
+        needed_second_rows = set(chain[1:])  # all j's in (i,j)
+        T = {}
+        for r in needed_second_rows:
+            T[r] = add(H1.getrow(r), H2.getrow(r))
+    
+        # for each i, collect which j rows should be XOR'ed into H2_i
+        addmap = {}
         for t in range(len(chain) - 1):
             i = chain[t]
             j = chain[t + 1]
-            if i == chain[-1]:
-                continue  # target row got removed
-            H2[old_to_new[i], :] = H.getrow(j)
-
-        return H1, H2.tocsr()
+            if i == r_last:
+                continue 
+            addmap.setdefault(i, []).append(j)
+    
+        # H1_new only contains deleted rows from H1
+        H1_new = H1[keep_rows, :].tocsr()
+    
+        # H2_new is built row-by-row with XORs
+        H2_rows = []
+        for r in keep_rows:
+            row = H2.getrow(r)
+            for j in addmap.get(r, []):
+                row = add(row, T[j])
+            H2_rows.append(row)
+    
+        H2_new = sp.vstack(H2_rows, format="csr")
+        return H1_new, H2_new
 
     # X
     Hxnew1 = code.hx.tocsr(copy=True)
     Hxnew2 = sp.csr_matrix(Hxnew1.shape, dtype=int)
-
     for Xcolorgroup in Xcombines:
         for (c1, c2) in color_groups[Xcolorgroup]:
             Hx_tot = add(Hxnew1, Hxnew2)
             chain = list(map(int, stabs_touching_qubit(Hx_tot, n**2 + m*c1 + c2)))
-            Hxnew1, Hxnew2 = split_chain_repetition_style(Hx_tot, chain)
-
+            Hxnew1, Hxnew2 = split_chain_repetition_style(Hxnew1, Hxnew2, chain)
+    
     # Z
     Hznew1 = code.hz.tocsr(copy=True)
     Hznew2 = sp.csr_matrix(Hznew1.shape, dtype=int)
-
     for Zcolorgroup in Zcombines:
         for (c1, c2) in color_groups[Zcolorgroup]:
             Hz_tot = add(Hznew1, Hznew2)
-
             chain = list(map(int, stabs_touching_qubit(Hz_tot, n**2 + m*c1 + c2)))
-            Hznew1, Hznew2 = split_chain_repetition_style(Hz_tot, chain)   
+            Hznew1, Hznew2 = split_chain_repetition_style(Hznew1, Hznew2, chain)
 
 ### Cutting other support
     Hxnew1 = Hxnew1.tolil(copy=True)
@@ -269,6 +221,6 @@ def get_reduced_code(code, H):
     Hznew = add(Hznew1, Hznew2)
     newcode = css_code(hx=Hxnew, hz=Hznew)
     newcode.name = 'Transformed code'
-    print(f"\tReduced code: [[n', k', d']] = [[{newcode.N}, {newcode.K}, {code.D}]]")
+    print(f"\t\tReduced code: [[n', k', d']] = [[{newcode.N}, {newcode.K}, {code.D}]]")
     
     return Hxnew1, Hxnew2, Hznew1, Hznew2, newcode, newcode.N, newcode.K, code.D
