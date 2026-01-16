@@ -1,4 +1,5 @@
 import argparse
+import matplotlib.pyplot as plt
 from bposd.css import css_code
 from functions.codes.random_codes import get_random_code
 from functions.codes.heawood_cycle import get_heawood_cycle
@@ -36,13 +37,16 @@ def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
     # params: (code, dec, circ, par, p2, p_data, p_meas, shots, rounds)
     print(f"\tSampling CNOT circuit and decoding via BP-{dec}... (This may take a while)")
     failures = num_failures_BP(code, dec, circ, [max_iter, osd_lsd_order], p2, shots, rounds)
-
+    ler = failures/shots
+    
     print(f"\tNumber of failed shots: {failures} out of {shots}")
-    print(f"\t==> Logical error rate is approx. {failures/shots:.4f}")
+    print(f"\t==> Logical error rate is approx. {ler:.4f}")
+    
+    return ler
     
 def total_sampling(p1, p2, p_spam, rounds):
     """
-    Samples the unreduced the reduced HGP codes.
+    Samples the unreduced the reduced HGP codes. Returns the unreduced LER and the reduced LER
     
     :param p1: single-qubit error probability
     :param p2: two-qubit error probability
@@ -51,17 +55,19 @@ def total_sampling(p1, p2, p_spam, rounds):
     """
     
     ### Parameters -- adjustable!
-    print(f"\tNoise parameters: p1={p1}, p2={p2}, p_spam={p_spam}")
+    print(f"   *******Noise parameters: p1={p1}, p2={p2}, p_spam={p_spam}*******")
   
 ### Sample unreduced code
-    print("\tGenerating **unreduced** CNOT syndrome circuit...")
+    print("\tGenerating *unreduced* CNOT syndrome circuit...")
     unreduced_circ = generate_full_circuit(unreduced_code, rounds, p1, p2, p_spam, 1234)
-    sample_HGP_circuit_noise(unreduced_code, unreduced_circ, rounds, p1, p2, p_spam)
+    unreduced_LER = sample_HGP_circuit_noise(unreduced_code, unreduced_circ, rounds, p1, p2, p_spam)
 
 ### Sample reduced code
-    print("\tGenerating **reduced** CNOT syndrome circuit (that avoids hook errors)...")
+    print("\tGenerating *reduced* CNOT syndrome circuit (that avoids hook errors)...")
     reduced_circ = generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, 1234)
-    sample_HGP_circuit_noise(reduced_code, reduced_circ, rounds, p1, p2, p_spam)
+    reduced_LER = sample_HGP_circuit_noise(reduced_code, reduced_circ, rounds, p1, p2, p_spam)
+    
+    return unreduced_LER, reduced_LER
 
 if __name__ == '__main__':
     
@@ -73,7 +79,10 @@ if __name__ == '__main__':
     osd_lsd_order = args.order # for OSD, how deep the OSD search goes;
                                # for LSD, how many bits in the neighborhood that post-processing explores
 
-    samples = ["random", "heawood", "K_33"]
+    samples = ["heawood", "K_33", "random"]
+    ps = [1e-3, 2e-3, 3e-3]
+    
+    reduced_results = {code_type: [] for code_type in samples}
 
     for code_type in samples:
         match code_type:
@@ -107,6 +116,21 @@ if __name__ == '__main__':
         # dimensions check
         assert Hx1.shape[1] == Hx2.shape[1] == Hz2.shape[1] == Hz1.shape[1]
     
-    ### Sample
-        p = 1e-3
-        total_sampling(p1=p/10, p2=p, p_spam=p, rounds=d)
+    ### Sample for different error probabilities
+        for p in ps:
+            unreduced_LER, reduced_LER = total_sampling(p1=p/10, p2=p, p_spam=p, rounds=d)
+            reduced_results[code_type].append(reduced_LER)
+            
+    ### Plot
+        for code_type, ys in reduced_results.items():
+            plt.plot(ps, ys, marker="o", label=code_type)
+
+        #plt.xscale("log")
+        #plt.yscale("log")
+        plt.xticks(ps, [f"{p:g}" for p in ps])
+
+        plt.xlabel("p (two-qubit error prob)")
+        plt.ylabel("Reduced LER")
+        plt.legend()
+        plt.tight_layout()
+        plt.show()

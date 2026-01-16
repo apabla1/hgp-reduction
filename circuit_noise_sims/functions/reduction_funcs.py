@@ -122,12 +122,15 @@ def get_reduced_code(code, H):
 ###            1 0 1 0   <- row 2                      1 0 1 1   <- row 4                    0 0 0 1   <- row 2 + row 4
 ###            1 1 0 1 ] <- row 5                      0 0 0 0 ] <- 0                        1 1 0 1 ] <- row 5 
 ###                                                                                              ↑ support removed here
-    
     def split_chain_repetition_style(H1, H2, chain):
         """
-        Given H and chain [r0, r1, ..., rk] (row indices in H),
-        return (H1, H2) with shape (m-1, n) such that H1 + H2 equals
-        H with repetition-style row-combines along the chain.
+        Given a decomposition Htot = H1 + H2 and a chain [r0, r1, ..., rk],
+        perform repetition-style combines on the total:
+            r0 <- r0 + r1
+            r1 <- r1 + r2
+            ...
+            r(k-1) <- r(k-1) + rk
+        and then remove row rk.
         """
         chain = list(map(int, chain))
         if len(chain) < 2:
