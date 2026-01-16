@@ -82,6 +82,8 @@ if __name__ == '__main__':
     samples = ["heawood", "K_33", "random"]
     ps = [1e-3, 2e-3, 3e-3]
     
+    # (for plotting later)
+    unreduced_results = {code_type: [] for code_type in samples}
     reduced_results = {code_type: [] for code_type in samples}
 
     for code_type in samples:
@@ -119,18 +121,25 @@ if __name__ == '__main__':
     ### Sample for different error probabilities
         for p in ps:
             unreduced_LER, reduced_LER = total_sampling(p1=p/10, p2=p, p_spam=p, rounds=d)
+            unreduced_results[code_type].append(unreduced_LER)
             reduced_results[code_type].append(reduced_LER)
             
-    ### Plot
-        for code_type, ys in reduced_results.items():
-            plt.plot(ps, ys, marker="o", label=code_type)
+### Plot
+    fig, (axL, axR) = plt.subplots(1, 2, figsize=(10, 4), sharex=True, sharey=True)
 
-        #plt.xscale("log")
-        #plt.yscale("log")
-        plt.xticks(ps, [f"{p:g}" for p in ps])
+    for code_type in samples:
+        axL.plot(ps, unreduced_results[code_type], marker="o", label=code_type)
+        axR.plot(ps, reduced_results[code_type],   marker="o", label=code_type)
 
-        plt.xlabel("p (two-qubit error prob)")
-        plt.ylabel("Reduced LER")
-        plt.legend()
-        plt.tight_layout()
-        plt.show()
+    axL.set_title("Unreduced")
+    axR.set_title("Reduced")
+
+    for ax in (axL, axR):
+        ax.set_xticks(ps, [f"{p:g}" for p in ps])
+        ax.set_xlabel("p (two-qubit error prob)")
+
+    axL.set_ylabel("Logical error rate (LER)")
+    axR.legend()
+
+    plt.tight_layout()
+    plt.show()
