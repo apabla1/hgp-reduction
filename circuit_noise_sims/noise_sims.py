@@ -5,7 +5,7 @@ from functions.codes.random_codes import get_random_code
 from functions.codes.heawood_cycle import get_heawood_cycle
 from functions.codes.K33_cycle import get_K33_cycle
 from functions.reduction_funcs import get_reduced_code
-from functions.H_to_CNOT_circuit import generate_synd_circuit, generate_full_circuit, generate_full_circuit_split
+from functions.H_to_CNOT_circuit import generate_full_circuit, generate_full_circuit_split
 from functions.BP_decoding import num_failures_BP
 from functions.matrix_funcs import add
 
@@ -23,7 +23,7 @@ def parse_args():
 
 def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
     """
-    Take a CNOT syndrome extraction circuit, and run samples
+    Take a CNOT syndrome extraction circuit, and run codes
     
     :param code: code that we are sampling
     :param circ: circuit corresponding to the code we are sampling
@@ -34,7 +34,7 @@ def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
     """   
 
 ### Sample CNOT circuit and decode
-    # params: (code, dec, circ, par, p2, p_data, p_meas, shots, rounds)
+    # params: (code, dec, circ, decoding params, p2, shots, rounds)
     print(f"\tSampling CNOT circuit and decoding via BP-{dec}... (This may take a while)")
     failures = num_failures_BP(code, dec, circ, [max_iter, osd_lsd_order], p2, shots, rounds)
     ler = failures/shots
@@ -46,7 +46,7 @@ def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
     
 def total_sampling(p1, p2, p_spam, rounds):
     """
-    Samples the unreduced the reduced HGP codes. Returns the unreduced LER and the reduced LER
+    codes the unreduced the reduced HGP codes. Returns the unreduced LER and the reduced LER
     
     :param p1: single-qubit error probability
     :param p2: two-qubit error probability
@@ -57,17 +57,22 @@ def total_sampling(p1, p2, p_spam, rounds):
     ### Parameters -- adjustable!
     print(f"   *******Noise parameters: p1={p1}, p2={p2}, p_spam={p_spam}*******")
   
-### Sample unreduced code
-    print("\tGenerating *unreduced* CNOT syndrome circuit...")
-    unreduced_circ = generate_full_circuit(unreduced_code, rounds, p1, p2, p_spam, 1234)
-    unreduced_LER = sample_HGP_circuit_noise(unreduced_code, unreduced_circ, rounds, p1, p2, p_spam)
+### Sample unreduced code with random syndrome extraction
+    print("\tGenerating *unreduced* CNOT syndrome circuit with random syndrome extraction...")
+    unreduced_random_circ = generate_full_circuit(unreduced_code, rounds, p1, p2, p_spam, 1234)
+    unreduced_random_LER = sample_HGP_circuit_noise(unreduced_code, unreduced_random_circ, rounds, p1, p2, p_spam)
 
-### Sample reduced code
-    print("\tGenerating *reduced* CNOT syndrome circuit (that avoids hook errors)...")
-    reduced_circ = generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, 1234)
-    reduced_LER = sample_HGP_circuit_noise(reduced_code, reduced_circ, rounds, p1, p2, p_spam)
+### Sample reduced code with random syndrome extraction
+    print("\tGenerating *reduced* CNOT syndrome circuit with random syndrome extraction...")
+    reduced_random_circ = generate_full_circuit(reduced_code, rounds, p1, p2, p_spam, 1234)
+    reduced_random_LER = sample_HGP_circuit_noise(reduced_code, reduced_random_circ, rounds, p1, p2, p_spam)
+
+### Sample reduced code with split syndrome extraction
+    print("\tGenerating *reduced* CNOT syndrome circuit with split syndrome extraction...")
+    reduced_split_circ = generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, 1234)
+    reduced_split_LER = sample_HGP_circuit_noise(reduced_code, reduced_split_circ, rounds, p1, p2, p_spam)
     
-    return unreduced_LER, reduced_LER
+    return unreduced_random_LER, reduced_random_LER, reduced_split_LER
 
 if __name__ == '__main__':
     
@@ -79,15 +84,21 @@ if __name__ == '__main__':
     osd_lsd_order = args.order # for OSD, how deep the OSD search goes;
                                # for LSD, how many bits in the neighborhood that post-processing explores
 
-    samples = ["heawood", "K_33", "random"]
+    codes = ["heawood", "K_33", "random"]
     ps = [1e-3, 2e-3, 3e-3]
     
     # (for plotting later)
-    unreduced_results = {code_type: [] for code_type in samples}
-    reduced_results = {code_type: [] for code_type in samples}
+    results = {
+        code: {
+            "unreduced_random": [],
+            "reduced_random": [],
+            "reduced_split": [],
+        }
+        for code in codes
+    }
 
-    for code_type in samples:
-        match code_type:
+    for code in codes:
+        match code:
             case "random":
                 print("------Sampling Random LDPC Code------")
             ### Reduced HGP from random (d_v, d_c), [n, k, d_min] classical code
@@ -120,27 +131,32 @@ if __name__ == '__main__':
     
     ### Sample for different error probabilities
         for p in ps:
-            unreduced_LER, reduced_LER = total_sampling(p1=p/10, p2=p, p_spam=p, rounds=d)
-            unreduced_results[code_type].append(unreduced_LER)
-            reduced_results[code_type].append(reduced_LER)
+            unreduced_random_LER, reduced_random_LER, reduced_split_LER = total_sampling(p1=p/10, p2=p, p_spam=p, rounds=d)
+            results[code]["unreduced_random"].append(unreduced_random_LER)
+            results[code]["reduced_random"].append(reduced_random_LER)
+            results[code]["reduced_split"].append(reduced_split_LER)
             
 ### Plot
-    fig, (axL, axR) = plt.subplots(1, 2, figsize=(10, 4), sharex=True, sharey=True)
+    fig, axes = plt.subplots(1, len(codes), figsize=(5 * len(codes), 4), sharex=True, sharey=True)
 
-    for code_type in samples:
-        axL.plot(ps, unreduced_results[code_type], marker="o", label=code_type)
-        axR.plot(ps, reduced_results[code_type],   marker="o", label=code_type)
+    if len(codes) == 1:
+        axes = [axes]
 
-    axL.set_title("Unreduced")
-    axR.set_title("Reduced")
+    for ax, code_type in zip(axes, codes):
+        ax.plot(ps, results[code_type]["unreduced_random"], marker="o",
+                label="unreduced + random synd.")
+        ax.plot(ps, results[code_type]["reduced_random"], marker="o",
+                label="reduced + random synd.")
+        ax.plot(ps, results[code_type]["reduced_split"], marker="o",
+                label="reduced + split synd.")
 
-    for ax in (axL, axR):
+        ax.set_title(code_type)
         ax.set_xticks(ps, [f"{p:g}" for p in ps])
         ax.set_xlabel("p")
+        ax.grid(True, which="both", linestyle="--", alpha=0.3)
 
-    axL.set_ylabel("Logical error rate (LER)")
-    axL.legend()
-    axR.legend()
+    axes[0].set_ylabel("Logical error rate")
+    axes[0].legend()
 
     plt.tight_layout()
     plt.show()
