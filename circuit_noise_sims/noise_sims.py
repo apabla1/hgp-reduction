@@ -84,7 +84,7 @@ if __name__ == '__main__':
     osd_lsd_order = args.order # for OSD, how deep the OSD search goes;
                                # for LSD, how many bits in the neighborhood that post-processing explores
 
-    codes = ["heawood", "K_33", "random"]
+    codes = ["random"]
     ps = [1e-3, 2e-3, 3e-3]
     
     # (for plotting later)
@@ -103,7 +103,7 @@ if __name__ == '__main__':
                 print("------Sampling Random LDPC Code------")
             ### Reduced HGP from random (d_v, d_c), [n, k, d_min] classical code
                 print("\tGenerating HGP code from random LDPC code...")
-                unreduced_code, H = get_random_code(n=20, d_v=3, d_c=5, min_dist=6, max_coloring=5) 
+                unreduced_code, H = get_random_code(n=12, d_v=3, d_c=4, min_dist=6, max_coloring=3) 
                 print("\tGenerating reduced HGP...")
                 Hx1, Hx2, Hz1, Hz2, _, _, _, d = get_reduced_code(unreduced_code, H)
                 reduced_code = css_code(hx = add(Hx1, Hx2), hz = add(Hz1, Hz2))
@@ -128,7 +128,19 @@ if __name__ == '__main__':
     
         # dimensions check
         assert Hx1.shape[1] == Hx2.shape[1] == Hz2.shape[1] == Hz1.shape[1]
-    
+       
+    ### Test out the weight changes
+        def weight_stats(H):
+            rw = H.getnnz(axis=1)
+            cw = H.getnnz(axis=0)
+            return (rw.min(), rw.max(), rw.mean(), cw.min(), cw.max(), cw.mean())
+
+        print("\t --Format: (rmin, rmax, rmean, cmin, cmax, cmean)--")
+        print("\t   unreduced hx:", weight_stats(unreduced_code.hx))
+        print("\t   unreduced hz:", weight_stats(unreduced_code.hz))
+        print("\t   reduced hx:", weight_stats(reduced_code.hx))
+        print("\t   reduced hz:", weight_stats(reduced_code.hz))
+
     ### Sample for different error probabilities
         for p in ps:
             unreduced_random_LER, reduced_random_LER, reduced_split_LER = total_sampling(p1=p/10, p2=p, p_spam=p, rounds=d)
