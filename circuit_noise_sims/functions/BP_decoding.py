@@ -3,6 +3,7 @@ import time
 from scipy.sparse import csr_matrix
 from ldpc.bposd_decoder import BpOsdDecoder
 from ldpc.bplsd_decoder import BpLsdDecoder
+import relay_bp
 
 # For printing time (ignore)
 def _fmt_secs(sec: float) -> str:
@@ -24,10 +25,10 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     rounds: number of rounds in the circuit
     """
     
-    if dec != 'OSD' and dec != 'LSD':
+    if dec != 'OSD' and dec != 'LSD' and dec != 'Relay':
         raise ValueError('Invalid decoder type')
-    if len(params) != 2:
-        raise ValueError('Invalid decoder paramsameters')
+    # if len(params) != 2:
+    #     raise ValueError('Invalid decoder parameters')
     
     H = code.hz.toarray()
     m, n = H.shape
@@ -39,13 +40,19 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
         H_dec[j,n*(rounds+1)+j] = 1
         H_dec[m+j,n*(rounds+1)+j] = 1
     H_dec = csr_matrix(H_dec)
+
+    w = np.mean(H.sum(axis=1).flatten()[0])
     
 ### Decoder
-    w = float(np.mean(H.sum(axis=0)[0]))
     if dec == 'OSD':
-        decoder = BpOsdDecoder(H_dec, error_rate = w*p2, max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1], schedule='parallel')
+        decoder = BpOsdDecoder(H_dec, error_rate = float(w*p2), max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1], schedule='parallel')
     elif dec == 'LSD':
-        decoder = BpLsdDecoder(H_dec, error_rate = w*p2, max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
+        decoder = BpLsdDecoder(H_dec, error_rate = float(w*p2), max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
+    elif dec == 'Relay':
+        gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = params
+        decoder = relay_bp.RelayDecoderF32(H_dec, error_priors=p2*np.ones(H_dec.shape[1]), gamma0=gamma0, pre_iter=pre_iter,
+                                        num_sets=num_sets, set_max_iter=max_iter,
+                                        gamma_dist_interval=gamma_dist_interval, stop_nconv=stop_nconv)
 
 ### Sampling
     sampler = circ.compile_sampler()
@@ -65,13 +72,13 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     for num_shots in batch_sizes:
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
-            print(f"\t\tShot 0 of {shots} (elapsed 0:00)") if shot_num == 0 else None
+            print(f"\tShot 0 of {shots} (elapsed 0:00)") if shot_num == 0 else None
             shot_num += 1
-            if shot_num % max(1, shots // 5) == 0 or shot_num == shots:
+            if shot_num % max(1, shots // 25) == 0 or shot_num == shots:
                 elapsed = time.perf_counter() - t0
                 rate = shot_num / elapsed
                 eta = (shots - shot_num) / rate if rate > 0 else float("inf")
-                print(f"\t\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
+                print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
             syndromes = np.zeros([rounds+1,m], dtype=int) 
             meas = output[i, :-n]  # all ancilla measurement bits (Z then X each round)
             per_round = meas.size // rounds  # should be mz + mx
@@ -80,6 +87,7 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
             syndromes[:rounds] = z_meas
             syndromes[-1] = H @ output[i,-n:] % 2
             syndromes[1:] = syndromes[1:] ^ syndromes[:-1]   # Difference syndrome
+            syndromes = np.array(syndromes, dtype=np.uint8)
             decoder_output = np.reshape(decoder.decode(np.ravel(syndromes))[:n*(rounds+1)], [rounds+1,n])
             correction = decoder_output.sum(axis=0) % 2
             final_state = output[i,-n:] ^ correction

@@ -84,7 +84,7 @@ if __name__ == '__main__':
     osd_lsd_order = args.order # for OSD, how deep the OSD search goes;
                                # for LSD, how many bits in the neighborhood that post-processing explores
 
-    codes = ["random"]
+    codes = ["heawood", "K_33", "random"]
     ps = [1e-3, 2e-3, 3e-3]
     
     # (for plotting later)
@@ -133,7 +133,7 @@ if __name__ == '__main__':
         def weight_stats(H):
             rw = H.getnnz(axis=1)
             cw = H.getnnz(axis=0)
-            return (rw.min(), rw.max(), rw.mean(), cw.min(), cw.max(), cw.mean())
+            return (rw.min(), rw.max(), round(rw.mean(), 3), cw.min(), cw.max(), round(cw.mean(), 3))
 
         print("\t --Format: (rmin, rmax, rmean, cmin, cmax, cmean)--")
         print("\t   unreduced hx:", weight_stats(unreduced_code.hx))
