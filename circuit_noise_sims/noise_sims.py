@@ -49,7 +49,7 @@ def total_sampling(p1, p2, p_spam, rounds):
     """
     
     ### Parameters -- adjustable!
-    print(f"   *******Noise parameters: p1={p1}, p2={p2}, p_spam={p_spam}*******")
+    print(f"   *******Noise parameters: p1={p1:.3}, p2={p2:.3}, p_spam={p_spam:.3}*******")
   
 ### Sample unreduced code with random syndrome extraction
     print("\tGenerating *unreduced* CNOT syndrome circuit with random syndrome extraction...")
