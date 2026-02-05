@@ -60,7 +60,7 @@ def num_failures_BP(code, circ, p2, shots, rounds):
         for i in range(num_shots):
             print(f"\tShot 0 of {shots} (elapsed 0:00)") if shot_num == 0 else None
             shot_num += 1
-            if shot_num % max(1, shots // 25) == 0 or shot_num == shots:
+            if shot_num % max(1, shots // 5) == 0 or shot_num == shots:
                 elapsed = time.perf_counter() - t0
                 rate = shot_num / elapsed
                 eta = (shots - shot_num) / rate if rate > 0 else float("inf")
