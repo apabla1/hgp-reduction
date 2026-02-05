@@ -13,12 +13,6 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--shots", type=int, required=True,
                         help="Number of circuit samples to decode (e.g., 10000)")
-    parser.add_argument("--decode", type=str.upper, choices=["OSD", "LSD", "RELAY"], required=True,
-                        help="Decoder type: OSD or LSD")
-    parser.add_argument("--max-iter", type=int, required=True,
-                        help="Max BP iterations (e.g., 75)")
-    parser.add_argument("--order", type=int, required=True,
-                        help="OSD order (if OSD) or LSD neighborhood size (if LSD) (e.g., OSD-2 or LSD-6)")
     return parser.parse_args()
 
 def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
@@ -35,8 +29,8 @@ def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
 
 ### Sample CNOT circuit and decode
     # params: (code, dec, circ, decoding params, p2, shots, rounds)
-    print(f"\tSampling CNOT circuit and decoding via BP-{dec}... (This may take a while)")
-    failures = num_failures_BP(code, dec, circ, [max_iter, osd_lsd_order], p2, shots, rounds)
+    print(f"\tSampling CNOT circuit and decoding via Relay-BP... (This may take a while)")
+    failures = num_failures_BP(code, circ, p2, shots, rounds)
     ler = failures/shots
     
     print(f"\tNumber of failed shots: {failures} out of {shots}")
@@ -79,10 +73,6 @@ if __name__ == '__main__':
 ### Command-line arguments 
     args = parse_args()
     shots = args.shots # number of shots for BP decoding
-    dec = args.decode # using OSD or LSD decoding
-    max_iter = args.max_iter # maximum number of iterations in BP decoding
-    osd_lsd_order = args.order # for OSD, how deep the OSD search goes;
-                               # for LSD, how many bits in the neighborhood that post-processing explores
 
     codes = ["heawood", "K_33", "random"]
     ps = [1e-3, 2e-3, 3e-3]
