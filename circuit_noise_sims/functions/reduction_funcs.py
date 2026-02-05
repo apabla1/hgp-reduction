@@ -11,7 +11,7 @@ from ldpc.code_util import compute_code_parameters, compute_exact_code_distance
 from ldpc.mod2 import rank
 from networkx.algorithms.bipartite import configuration_model, biadjacency_matrix
 from matplotlib import rcParams
-from functions.codes.random_codes import get_check_adj_graph, get_check_coloring
+from codes.random_codes import get_check_adj_graph, get_check_coloring
 from functions.matrix_funcs import add
 
 # suppress exact_code_distance warning
