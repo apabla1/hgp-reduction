@@ -48,7 +48,7 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
         decoder = BpOsdDecoder(H_dec, error_rate = float(w*p2), max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1], schedule='parallel')
     elif dec == 'LSD':
         decoder = BpLsdDecoder(H_dec, error_rate = float(w*p2), max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
-    elif dec == 'Relay':
+    elif dec == 'RELAY':
         gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = (0.65, 80, 100, 60, (-0.24, 0.66), 5)
         #gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = params
         decoder = relay_bp.RelayDecoderF32(H_dec, error_priors=p2*np.ones(H_dec.shape[1]), gamma0=gamma0, pre_iter=pre_iter,
