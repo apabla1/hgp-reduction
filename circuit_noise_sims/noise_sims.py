@@ -75,7 +75,7 @@ if __name__ == '__main__':
     shots = args.shots # number of shots for BP decoding
 
     codes = ["heawood", "K_33", "random"]
-    ps = [1e-3, 2e-3, 3e-3]
+    ps = [7e-4, 7.5e-4, 8e-4, 8.5e-4, 9e-4, 9.5e-4, 1e-3, 1.5e-3, 2e-3, 2.5e-4, 3e-3, 3.5e-3, 4e-3]
     
     # (for plotting later)
     results = {
