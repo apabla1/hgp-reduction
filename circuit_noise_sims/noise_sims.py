@@ -1,9 +1,9 @@
 import argparse
 import matplotlib.pyplot as plt
 from bposd.css import css_code
-from functions.codes.random_codes import get_random_code
-from functions.codes.heawood_cycle import get_heawood_cycle
-from functions.codes.K33_cycle import get_K33_cycle
+from codes.random_codes import get_random_code
+from codes.heawood_cycle import get_heawood_cycle
+from codes.K33_cycle import get_K33_cycle
 from functions.reduction_funcs import get_reduced_code
 from functions.H_to_CNOT_circuit import generate_full_circuit, generate_full_circuit_split
 from functions.BP_decoding import num_failures_BP
@@ -13,7 +13,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--shots", type=int, required=True,
                         help="Number of circuit samples to decode (e.g., 10000)")
-    parser.add_argument("--decode", type=str.upper, choices=["OSD", "LSD"], required=True,
+    parser.add_argument("--decode", type=str.upper, choices=["OSD", "LSD", "RELAY"], required=True,
                         help="Decoder type: OSD or LSD")
     parser.add_argument("--max-iter", type=int, required=True,
                         help="Max BP iterations (e.g., 75)")

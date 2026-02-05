@@ -25,7 +25,7 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     rounds: number of rounds in the circuit
     """
     
-    if dec != 'OSD' and dec != 'LSD' and dec != 'Relay':
+    if dec != 'OSD' and dec != 'LSD' and dec != 'RELAY':
         raise ValueError('Invalid decoder type')
     # if len(params) != 2:
     #     raise ValueError('Invalid decoder parameters')
@@ -49,7 +49,8 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     elif dec == 'LSD':
         decoder = BpLsdDecoder(H_dec, error_rate = float(w*p2), max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
     elif dec == 'Relay':
-        gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = params
+        gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = (0.65, 80, 100, 60, (-0.24, 0.66), 5)
+        #gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = params
         decoder = relay_bp.RelayDecoderF32(H_dec, error_priors=p2*np.ones(H_dec.shape[1]), gamma0=gamma0, pre_iter=pre_iter,
                                         num_sets=num_sets, set_max_iter=max_iter,
                                         gamma_dist_interval=gamma_dist_interval, stop_nconv=stop_nconv)
