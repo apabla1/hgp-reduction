@@ -14,8 +14,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--shots", type=int, required=True,
                         help="Number of circuit samples to decode (e.g., 10000)")
-    parser.add_argument("--decode", type=str, choices=["BPOSD", "BPLSD", "RelayBP"], required=True,
-                        help="Decoder type: BPOSD, BPLSD, RelayBP")
+    parser.add_argument("--decode", type=str, choices=["BP-OSD", "BP-LSD", "RelayBP"], required=True,
+                        help="Decoder type: BP-OSD, BP-LSD, RelayBP")
     parser.add_argument("--order", type=int, default=6, required=False,
                         help="(OSD/LSD) OSD order (if OSD) or LSD neighborhood size (if LSD) (e.g., OSD-2 or LSD-6)")
     parser.add_argument("--max-iter", type=int, default=100, required=False,
@@ -49,7 +49,7 @@ def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
 ### Sample CNOT circuit and decode
     # params: (code, dec, circ, decoding params, p2, shots, rounds)
     print(f"\tSampling CNOT circuit and decoding via {dec}... (This may take a while)")
-    if dec in ["BPOSD", "BPLSD"]:
+    if dec in ["BP-OSD", "BP-LSD"]:
         params = (max_iter, osd_lsd_order)
     elif dec == "RelayBP":
         params = (gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv)
@@ -105,6 +105,9 @@ if __name__ == '__main__':
     gamma_dist_interval = args.gamma_dist_interval
     stop_nconv = args.stop_nconv
     figname = args.figname
+    
+    if dec not in ["BP-OSD", "BP-LSD", "RelayBP"]:
+        raise ValueError("Invalid decoder type. Must be one of: BP-OSD, BP-LSD, RelayBP.")
 
     codes = ["heawood", "K_33", "random"]
     ps = [5e-4, 1e-3, 1.5e-3, 2e-3, 2.5e-3, 3e-3, 3.5e-3, 4e-3, 4.5e-3, 5e-3]
