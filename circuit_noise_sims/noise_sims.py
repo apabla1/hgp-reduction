@@ -48,7 +48,7 @@ def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
 
 ### Sample CNOT circuit and decode
     # params: (code, dec, circ, decoding params, p2, shots, rounds)
-    print(f"\tSampling CNOT circuit and decoding via BP-{dec}... (This may take a while)")
+    print(f"\tSampling CNOT circuit and decoding via {dec}... (This may take a while)")
     if dec in ["BPOSD", "BPLSD"]:
         params = (max_iter, osd_lsd_order)
     elif dec == "RelayBP":
