@@ -37,10 +37,10 @@ def num_failures_BP(code, dec, circ, p2, params, shots, rounds):
     w = np.mean(H.sum(axis=1).flatten()[0])
     
 ### Decoder
-    if dec == 'BPOSD':
+    if dec == 'BP-OSD':
         max_iter, osd_order = params
         decoder = BpOsdDecoder(H_dec, error_rate = float(w*p2), max_iter=max_iter, bp_method='ms', osd_method='osd_cs', osd_order=osd_order, schedule='parallel')
-    elif dec == 'BPLSD':
+    elif dec == 'BP-LSD':
         max_iter, lsd_order = params
         decoder = BpLsdDecoder(H_dec, error_rate = float(w*p2), max_iter=max_iter, bp_method='ms', lsd_method='lsd_cs', lsd_order=lsd_order, schedule='serial')
     elif dec == 'RelayBP':
