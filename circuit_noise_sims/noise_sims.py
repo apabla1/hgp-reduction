@@ -29,6 +29,8 @@ def parse_args():
                         help="(RelayBP) Gamma distribution interval for Relay BP (e.g., -0.24 0.66)")
     parser.add_argument("--stop-nconv", type=int, default=5, required=False,
                         help="(RelayBP) Number of consecutive iterations without improvement to stop Relay BP")
+    parser.add_argument("--figname", type=str, default="figure.png", required=False,
+                        help="Filename for saving the figure (e.g., figure.png)")
     return parser.parse_args()
 
 def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
@@ -101,6 +103,7 @@ if __name__ == '__main__':
     num_sets = args.num_sets
     gamma_dist_interval = args.gamma_dist_interval
     stop_nconv = args.stop_nconv
+    figname = args.figname
 
     codes = ["heawood", "K_33", "random"]
     ps = [5e-4, 1e-3, 1.5e-3, 2e-3, 2.5e-3, 3e-3, 3.5e-3, 4e-3, 4.5e-3, 5e-3]
@@ -189,5 +192,5 @@ if __name__ == '__main__':
     axes[0].legend()
 
     plt.tight_layout()
-    plt.savefig("figure.png")
+    plt.savefig(figname)
     plt.show()
