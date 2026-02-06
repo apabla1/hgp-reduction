@@ -69,7 +69,7 @@ def total_sampling(p1, p2, p_spam, rounds):
     """
     
     ### Parameters -- adjustable!
-    print(f"   *******Noise parameters: p1={p1}, p2={p2}, p_spam={p_spam}*******")
+    print(f"   *******Noise parameters: p1={p1:.3g}, p2={p2:.3g}, p_spam={p_spam:.3g}*******")
   
 ### Sample unreduced code with random syndrome extraction
     print("\tGenerating *unreduced* CNOT syndrome circuit with random syndrome extraction...")
@@ -103,7 +103,7 @@ if __name__ == '__main__':
     stop_nconv = args.stop_nconv
 
     codes = ["heawood", "K_33", "random"]
-    ps = [1e-3, 2e-3, 3e-3]
+    ps = [5e-4, 1e-3, 1.5e-3, 2e-3, 2.5e-3, 3e-3, 3.5e-3, 4e-3, 4.5e-3, 5e-3]
     
     # (for plotting later)
     results = {
@@ -151,7 +151,7 @@ if __name__ == '__main__':
         def weight_stats(H):
             rw = H.getnnz(axis=1)
             cw = H.getnnz(axis=0)
-            return (rw.min(), rw.max(), round(rw.mean(), 3), cw.min(), cw.max(), round(cw.mean(), 3))
+            return (int(rw.min()), int(rw.max()), round(float(rw.mean()), 3), int(cw.min()), int(cw.max()), round(float(cw.mean()), 3))
 
         print("\t --Format: (rmin, rmax, rmean, cmin, cmax, cmean)--")
         print("\t   unreduced hx:", weight_stats(unreduced_code.hx))
@@ -189,4 +189,5 @@ if __name__ == '__main__':
     axes[0].legend()
 
     plt.tight_layout()
+    plt.savefig("figure.png")
     plt.show()
