@@ -13,6 +13,22 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--shots", type=int, required=True,
                         help="Number of circuit samples to decode (e.g., 10000)")
+    parser.add_argument("--decode", type=str, choices=["BPOSD", "BPLSD", "RelayBP"], required=True,
+                        help="Decoder type: BPOSD, BPLSD, RelayBP")
+    parser.add_argument("--order", type=int, default=6, required=False,
+                        help="(OSD/LSD) OSD order (if OSD) or LSD neighborhood size (if LSD) (e.g., OSD-2 or LSD-6)")
+    parser.add_argument("--max-iter", type=int, default=100, required=False,
+                        help="(OSD/LSD) Maximum number of iterations in BP decoding")
+    parser.add_argument("--gamma0", type=float, default=0.65, required=False,
+                        help="(RelayBP) Initial gamma value for Relay BP")
+    parser.add_argument("--pre-iter", type=int, default=80, required=False,
+                        help="(RelayBP) Number of pre-iterations for Relay BP")
+    parser.add_argument("--num-sets", type=int, default=100, required=False,
+                        help="(RelayBP) Number of sets for Relay BP")
+    parser.add_argument("--gamma-dist-interval", type=float, nargs=2, default=(-0.24, 0.66), required=False,
+                        help="(RelayBP) Gamma distribution interval for Relay BP (e.g., -0.24 0.66)")
+    parser.add_argument("--stop-nconv", type=int, default=5, required=False,
+                        help="(RelayBP) Number of consecutive iterations without improvement to stop Relay BP")
     return parser.parse_args()
 
 def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
@@ -29,8 +45,12 @@ def sample_HGP_circuit_noise(code, circ, rounds, p1, p2, p_spam):
 
 ### Sample CNOT circuit and decode
     # params: (code, dec, circ, decoding params, p2, shots, rounds)
-    print(f"\tSampling CNOT circuit and decoding via Relay-BP... (This may take a while)")
-    failures = num_failures_BP(code, circ, p2, shots, rounds)
+    print(f"\tSampling CNOT circuit and decoding via BP-{dec}... (This may take a while)")
+    if dec in ["BPOSD", "BPLSD"]:
+        params = (max_iter, osd_lsd_order)
+    elif dec == "RelayBP":
+        params = (gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv)
+    failures = num_failures_BP(code, dec, circ, p2, params, shots, rounds)
     ler = failures/shots
     
     print(f"\tNumber of failed shots: {failures} out of {shots}")
@@ -49,7 +69,7 @@ def total_sampling(p1, p2, p_spam, rounds):
     """
     
     ### Parameters -- adjustable!
-    print(f"   *******Noise parameters: p1={p1:.3}, p2={p2:.3}, p_spam={p_spam:.3}*******")
+    print(f"   *******Noise parameters: p1={p1}, p2={p2}, p_spam={p_spam}*******")
   
 ### Sample unreduced code with random syndrome extraction
     print("\tGenerating *unreduced* CNOT syndrome circuit with random syndrome extraction...")
@@ -72,10 +92,18 @@ if __name__ == '__main__':
     
 ### Command-line arguments 
     args = parse_args()
-    shots = args.shots # number of shots for BP decoding
+    shots = args.shots
+    dec = args.decode
+    max_iter = args.max_iter
+    osd_lsd_order = args.order
+    gamma0 = args.gamma0
+    pre_iter = args.pre_iter
+    num_sets = args.num_sets
+    gamma_dist_interval = args.gamma_dist_interval
+    stop_nconv = args.stop_nconv
 
     codes = ["heawood", "K_33", "random"]
-    ps = [7e-4, 7.5e-4, 8e-4, 8.5e-4, 9e-4, 9.5e-4, 1e-3, 1.5e-3, 2e-3, 2.5e-4, 3e-3, 3.5e-3, 4e-3]
+    ps = [1e-3, 2e-3, 3e-3]
     
     # (for plotting later)
     results = {
@@ -161,5 +189,4 @@ if __name__ == '__main__':
     axes[0].legend()
 
     plt.tight_layout()
-    plt.savefig("figure.png", dpi=300, bbox_inches="tight")
     plt.show()
