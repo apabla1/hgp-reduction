@@ -161,4 +161,5 @@ if __name__ == '__main__':
     axes[0].legend()
 
     plt.tight_layout()
+    plt.savefig("figure.png", dpi=300, bbox_inches="tight")
     plt.show()

@@ -1,0 +1,6 @@
+#!/home/apabla/hgp-reduction/circuit_noise_sims/.venv/bin/python
+import sys
+from stim._main_argv import main_argv
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main_argv())
