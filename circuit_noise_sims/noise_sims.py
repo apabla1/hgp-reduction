@@ -1,4 +1,5 @@
 import argparse
+import os
 import matplotlib.pyplot as plt
 from bposd.css import css_code
 from codes.random_codes import get_random_code
@@ -192,5 +193,5 @@ if __name__ == '__main__':
     axes[0].legend()
 
     plt.tight_layout()
-    plt.savefig(figname)
+    plt.savefig(os.path.join("figs", figname))
     plt.show()
