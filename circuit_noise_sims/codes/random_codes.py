@@ -62,6 +62,12 @@ def get_random_code(n, d_v, d_c, min_dist, max_coloring):
             #print(f"# colors: {len(coloring)}")
             if len(coloring) <= max_coloring:
                 break
+    else:
+        raise RuntimeError(
+            f"Failed to find a valid random code with d>={min_dist} and "
+            f"coloring<={max_coloring} after {tries} tries. "
+            f"Try relaxing min_dist or max_coloring."
+        )
     print(f"\t\tRandom code: [n, k, d] = {compute_code_parameters(H)}")
     
     ### Create HGP code from two of the classical code

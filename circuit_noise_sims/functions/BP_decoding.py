@@ -1,6 +1,8 @@
 import numpy as np
 import time
 from scipy.sparse import csr_matrix
+from ldpc.bposd_decoder import BpOsdDecoder
+from ldpc.bplsd_decoder import BpLsdDecoder
 import relay_bp
 
 # For printing time (ignore)
@@ -10,16 +12,27 @@ def _fmt_secs(sec: float) -> str:
     h, m = divmod(m, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
-def num_failures_BP(code, circ, p2, shots, rounds):
+def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     """
     code: css code object
+    dec: decoder type ('OSD' or 'LSD' or 'Relay')
     circ: stim circuit for syndrome extraction
+    params: decoder parameters
+        OSD/LSD -> [bp_max_iter, bp_order]
+        Relay   -> [gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv]
     p2: two-qubit gate error probability
     p_data: prior per data time-slice variable
     p_meas: prior per measurement variable
     shots: number of shots to sample
     rounds: number of rounds in the circuit
     """
+    
+    if dec != 'OSD' and dec != 'LSD' and dec != 'Relay':
+        raise ValueError('Invalid decoder type')
+    if dec in ('OSD', 'LSD') and len(params) != 2:
+        raise ValueError('Invalid decoder parameters for OSD/LSD; expected 2 values: [bp_max_iter, bp_order]')
+    if dec == 'Relay' and len(params) != 6:
+        raise ValueError('Invalid decoder parameters for Relay; expected 6 values: [gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv]')
     
     H = code.hz.toarray()
     m, n = H.shape
@@ -32,13 +45,18 @@ def num_failures_BP(code, circ, p2, shots, rounds):
         H_dec[m+j,n*(rounds+1)+j] = 1
     H_dec = csr_matrix(H_dec)
 
-    w = np.mean(H.sum(axis=1).flatten()[0])
+    w = np.mean(H.sum(axis=1))
     
 ### Decoder
-    gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = (0.65, 80, 100, 60, (-0.24, 0.66), 5)
-    decoder = relay_bp.RelayDecoderF32(H_dec, error_priors=p2*np.ones(H_dec.shape[1]), gamma0=gamma0, pre_iter=pre_iter,
-                                    num_sets=num_sets, set_max_iter=max_iter,
-                                    gamma_dist_interval=gamma_dist_interval, stop_nconv=stop_nconv)
+    if dec == 'OSD':
+        decoder = BpOsdDecoder(H_dec, error_rate = float(w*p2), max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1], schedule='parallel')
+    elif dec == 'LSD':
+        decoder = BpLsdDecoder(H_dec, error_rate = float(w*p2), max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
+    elif dec == 'Relay':
+        gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = params
+        decoder = relay_bp.RelayDecoderF32(H_dec, error_priors=p2*np.ones(H_dec.shape[1]), gamma0=gamma0, pre_iter=pre_iter,
+                                        num_sets=num_sets, set_max_iter=max_iter,
+                                        gamma_dist_interval=gamma_dist_interval, stop_nconv=stop_nconv)
 
 ### Sampling
     sampler = circ.compile_sampler()
@@ -58,13 +76,13 @@ def num_failures_BP(code, circ, p2, shots, rounds):
     for num_shots in batch_sizes:
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
-            print(f"\tShot 0 of {shots} (elapsed 0:00)") if shot_num == 0 else None
+            # print(f"\tShot 0 of {shots} (elapsed 0:00)") if shot_num == 0 else None
             shot_num += 1
-            if shot_num % max(1, shots // 5) == 0 or shot_num == shots:
+            if shot_num % max(1, shots // 25) == 0 or shot_num == shots:
                 elapsed = time.perf_counter() - t0
                 rate = shot_num / elapsed
                 eta = (shots - shot_num) / rate if rate > 0 else float("inf")
-                print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
+                # print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
             syndromes = np.zeros([rounds+1,m], dtype=int) 
             meas = output[i, :-n]  # all ancilla measurement bits (Z then X each round)
             per_round = meas.size // rounds  # should be mz + mx
