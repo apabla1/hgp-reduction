@@ -5,11 +5,9 @@ import os
 import numpy as np
 import matplotlib
 
-# Prefer xcb on Wayland to avoid Qt wayland plugin warnings in some environments.
 if os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland" and "QT_QPA_PLATFORM" not in os.environ:
     os.environ["QT_QPA_PLATFORM"] = "xcb"
 
-# Use a non-interactive backend when no display server is available.
 if "MPLBACKEND" not in os.environ and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
     matplotlib.use("Agg")
 
@@ -283,7 +281,6 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
     :param dec_params: decoder parameters (optional, for filename generation)
     :param shots: number of shots (optional, for filename generation)
     """
-    # Create 3-column grid layout
     import math
     num_codes = len(selected_codes)
     num_cols = 3
@@ -292,7 +289,6 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
     fig, axes = plt.subplots(num_rows, num_cols, figsize=(5 * num_cols, 4 * num_rows), 
                               sharex=True, sharey=True)
     
-    # Flatten axes array for easier indexing
     if isinstance(axes, np.ndarray):
         axes = axes.flatten()
     else:
@@ -351,17 +347,14 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
         ax.tick_params(axis='x', which='both', labelbottom=True)
         ax.grid(True, which='both', axis='both')
     
-    # Hide extra subplots if number of codes is not a multiple of 3
     for idx in range(num_codes, len(axes)):
         axes[idx].axis('off')
     
-    # Add legend and labels
     axes[0].set_ylabel(r'Logical failure probability', fontsize=16)
     axes[0].legend(fontsize=12, loc='lower right')
     
     plt.tight_layout()
     
-    # Only save if decoder and shots info provided
     if decoder is not None and dec_params is not None and shots is not None:
         plots_dir = Path("plots")
         plots_dir.mkdir(exist_ok=True)
@@ -388,7 +381,6 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
 def main():
     args = parse_args()
 
-    # Setup decoder parameters when decoder is provided.
     dec_params = None
     if args.decoder == "Relay":
         dec_params = [
