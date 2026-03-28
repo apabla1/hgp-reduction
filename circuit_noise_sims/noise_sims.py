@@ -1,11 +1,9 @@
 import argparse
-import os
 import sys
 import importlib
-import json
 import numpy as np
 import matplotlib.pyplot as plt
-from typing import cast, Dict, List, Tuple, Any, Optional
+from typing import cast, Dict, List, Tuple, Any
 from matplotlib import rcParams
 from matplotlib.axes import Axes
 from pathlib import Path
@@ -17,7 +15,6 @@ from functions.decoding import num_failures_BP
 rcParams['font.size'] = 14
 rcParams['text.usetex'] = True
 
-# Get the codes directory path
 CODES_DIR = Path(__file__).parent / "codes"
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -25,8 +22,6 @@ DATA_DIR.mkdir(exist_ok=True)
 def get_available_codes() -> Dict[str, str]:
     """
     Dynamically discover all available code getter functions.
-    Returns dict mapping code name to module name.
-    Excludes helper functions and only includes actual code generators.
     """
     codes = {}
     exclude_prefixes = ('get_check_', 'get_coloring_', 'get_adj_')  # Helper function patterns
@@ -37,11 +32,9 @@ def get_available_codes() -> Dict[str, str]:
         module_name = module_file.stem
         try:
             module = importlib.import_module(f"codes.{module_name}")
-            # Find all functions starting with 'get_' but exclude helpers
             for attr_name in dir(module):
                 if not attr_name.startswith('get_'):
                     continue
-                # Skip known helper function patterns
                 if any(attr_name.startswith(prefix) for prefix in exclude_prefixes):
                     continue
                 code_name = attr_name[4:]  # Remove 'get_' prefix
@@ -143,7 +136,7 @@ def parallel_sample_wrapper(params_tuple):
     
 def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
                    unreduced_code, reduced_code, Hx1, Hx2, Hz1, Hz2, seed,
-                   code_name=None, error_idx=None, results_for_code=None, metadata=None):
+                   code_name=None, error_idx=None, results_for_code=None):
     """
     Samples the unreduced and reduced HGP codes. Returns the unreduced LER and the reduced LER.
     
@@ -169,7 +162,7 @@ def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
         unreduced_failures = int(unreduced_random_LER * shots)
         results_for_code["unreduced_random"][error_idx, 0] += unreduced_failures
         results_for_code["unreduced_random"][error_idx, 1] += shots
-        save_data(results_for_code["unreduced_random"], code_name, "unreduced_random", metadata=metadata)
+        save_data(results_for_code["unreduced_random"], code_name, "unreduced_random", decoder, dec_params, shots)
 
     # Sample reduced code with random syndrome extraction
     print("\tGenerating *reduced* CNOT syndrome circuit with random syndrome extraction...")
@@ -181,7 +174,7 @@ def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
         reduced_random_failures = int(reduced_random_LER * shots)
         results_for_code["reduced_random"][error_idx, 0] += reduced_random_failures
         results_for_code["reduced_random"][error_idx, 1] += shots
-        save_data(results_for_code["reduced_random"], code_name, "reduced_random", metadata=metadata)
+        save_data(results_for_code["reduced_random"], code_name, "reduced_random", decoder, dec_params, shots)
 
     # Sample reduced code with split syndrome extraction
     print("\tGenerating *reduced* CNOT syndrome circuit with split syndrome extraction...")
@@ -193,7 +186,7 @@ def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
         reduced_split_failures = int(reduced_split_LER * shots)
         results_for_code["reduced_split"][error_idx, 0] += reduced_split_failures
         results_for_code["reduced_split"][error_idx, 1] += shots
-        save_data(results_for_code["reduced_split"], code_name, "reduced_split", metadata=metadata)
+        save_data(results_for_code["reduced_split"], code_name, "reduced_split", decoder, dec_params, shots)
     
     return unreduced_random_LER, reduced_random_LER, reduced_split_LER
 
@@ -207,35 +200,34 @@ def weight_stats(H):
         cw = H.sum(axis=0)
     return (rw.min(), rw.max(), round(float(rw.mean()), 3), cw.min(), cw.max(), round(float(cw.mean()), 3))
 
-def get_data_filename(code_name: str, variant: str) -> Path:
-    """Generate standard data filename for a code and variant."""
-    return DATA_DIR / f"{code_name}_{variant}.npy"
+def config_tag(decoder: str, dec_params: List, shots: int) -> str:
+    """Build a filename-safe tag for decoder configuration."""
+    if decoder == "Relay":
+        gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = dec_params
+        return (f"{decoder}_shots{shots}_g0{gamma0}_pre{pre_iter}_sets{num_sets}"
+                f"_iter{max_iter}_gdi{gamma_dist_interval[0]}to{gamma_dist_interval[1]}_nconv{stop_nconv}")
+    return f"{decoder}_shots{shots}_bpiter{dec_params[0]}_order{dec_params[1]}"
 
-def get_metadata_filename(code_name: str, variant: str) -> Path:
-    """Generate standard metadata filename for a code and variant."""
-    return DATA_DIR / f"{code_name}_{variant}_metadata.json"
 
-def load_or_create_data(code_name: str, variant: str, num_error_points: int, decoder: Optional[str] = None, 
-                        dec_params: Optional[List] = None, shots: Optional[int] = None, resume: bool = False):
+def get_data_filename(code_name: str, variant: str, decoder: str, dec_params: List, shots: int) -> Path:
+    """Generate config-specific data filename for a code and variant."""
+    return DATA_DIR / f"{code_name}_{variant}_{config_tag(decoder, dec_params, shots)}.npy"
+
+
+def load_or_create_data(code_name: str, variant: str, num_error_points: int, decoder: str,
+                        dec_params: List, shots: int, resume: bool = False):
     """
     Load existing data or create new array for storing results.
     Data format: [[failures, total_shots], ...]
     
-    If existing data has different size or incompatible metadata, creates new array.
+    If existing data has different size, creates new array.
     """
-    filename = get_data_filename(code_name, variant)
+    filename = get_data_filename(code_name, variant, decoder, dec_params, shots)
     
     if resume and filename.exists():
         try:
             prior_data = np.load(filename)
             if prior_data.shape[0] == num_error_points:
-                # Check metadata compatibility
-                existing_meta = load_metadata(code_name, variant)
-                if decoder is not None and dec_params is not None:
-                    if not metadata_compatible(existing_meta, decoder, dec_params):
-                        print(f"\t\t{color_note('⚠ Metadata mismatch')} - starting fresh")
-                        return np.zeros([num_error_points, 2], dtype=int)
-                
                 print(f"\t\tLoading prior data from {filename}")
                 return prior_data
             else:
@@ -247,60 +239,11 @@ def load_or_create_data(code_name: str, variant: str, num_error_points: int, dec
     else:
         return np.zeros([num_error_points, 2], dtype=int)
 
-def color_note(text: str) -> str:
-    """Simple text helper (for formatting messages)."""
-    return text
-
-def save_data(data: np.ndarray, code_name: str, variant: str, metadata: Optional[Dict] = None):
-    """Save simulation data and metadata to file."""
-    filename = get_data_filename(code_name, variant)
+def save_data(data: np.ndarray, code_name: str, variant: str, decoder: str, dec_params: List, shots: int):
+    """Save simulation data to a config-specific file."""
+    filename = get_data_filename(code_name, variant, decoder, dec_params, shots)
     np.save(filename, data)
     print(f"\t\tData saved to {filename}")
-    
-    if metadata is not None:
-        metadata_filename = get_metadata_filename(code_name, variant)
-        # Convert tuples to lists for JSON serialization
-        def make_serializable(obj):
-            if isinstance(obj, tuple):
-                return [make_serializable(item) for item in obj]
-            elif isinstance(obj, list):
-                return [make_serializable(item) for item in obj]
-            elif isinstance(obj, dict):
-                return {k: make_serializable(v) for k, v in obj.items()}
-            else:
-                return obj
-        
-        serializable_metadata = make_serializable(metadata)
-        with open(metadata_filename, 'w') as f:
-            json.dump(serializable_metadata, f, indent=2)
-        print(f"\t\tMetadata saved to {metadata_filename}")
-
-def load_metadata(code_name: str, variant: str) -> Optional[Dict]:
-    """Load metadata for a data file if it exists."""
-    metadata_filename = get_metadata_filename(code_name, variant)
-    if metadata_filename.exists():
-        try:
-            with open(metadata_filename, 'r') as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"\t\tWarning: Could not load metadata: {e}")
-            return None
-    return None
-
-def metadata_compatible(existing_meta: Optional[Dict], decoder: str, dec_params: List) -> bool:
-    """Check if existing metadata is compatible with current decoder/parameters."""
-    if existing_meta is None:
-        return False
-    
-    if existing_meta.get("decoder") != decoder:
-        print(f"\t\tDecoder mismatch: existing={existing_meta.get('decoder')}, current={decoder}")
-        return False
-    
-    if existing_meta.get("dec_params") != dec_params:
-        print(f"\t\tDecoder parameters mismatch")
-        return False
-    
-    return True
 
 def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, shots=None):
     """
@@ -408,12 +351,29 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
 
 def main():
     args = parse_args()
+
+    # Setup decoder parameters when decoder is provided.
+    dec_params = None
+    if args.decoder == "Relay":
+        dec_params = [
+            args.relay_gamma0,
+            args.relay_pre_iter,
+            args.relay_num_sets,
+            args.relay_max_iter,
+            tuple(args.relay_gamma_dist_interval),
+            args.relay_stop_nconv]
+    elif args.decoder in ("OSD", "LSD"):
+        dec_params = [args.bp_max_iter, args.bp_order]
     
     # Handle --print-plots mode
     if args.print_plots:
         print(f"\n{'='*60}")
         print("Loading and plotting existing data...")
         print(f"{'='*60}")
+
+        if args.shots is None or args.decoder is None or dec_params is None:
+            print("Error: --print-plots with config-specific filenames requires --shots and --decoder.", file=sys.stderr)
+            sys.exit(1)
         
         available_codes = get_available_codes()
         if args.codes:
@@ -432,9 +392,9 @@ def main():
         results = {}
         for code in selected_codes:
             results[code] = {
-                "unreduced_random": load_or_create_data(code, "unreduced_random", num_error_points, resume=True),
-                "reduced_random": load_or_create_data(code, "reduced_random", num_error_points, resume=True),
-                "reduced_split": load_or_create_data(code, "reduced_split", num_error_points, resume=True),
+                "unreduced_random": load_or_create_data(code, "unreduced_random", num_error_points, args.decoder, dec_params, args.shots, resume=True),
+                "reduced_random": load_or_create_data(code, "reduced_random", num_error_points, args.decoder, dec_params, args.shots, resume=True),
+                "reduced_split": load_or_create_data(code, "reduced_split", num_error_points, args.decoder, dec_params, args.shots, resume=True),
             }
         
         plot_results(results, selected_codes, ps)
@@ -445,18 +405,6 @@ def main():
         print("Error: --shots and --decoder are required for simulation.", file=sys.stderr)
         print("Use --list-codes to see available codes.", file=sys.stderr)
         sys.exit(1)
-    
-    # Setup decoder parameters
-    if args.decoder == "Relay":
-        dec_params = [
-            args.relay_gamma0,
-            args.relay_pre_iter,
-            args.relay_num_sets,
-            args.relay_max_iter,
-            tuple(args.relay_gamma_dist_interval),
-            args.relay_stop_nconv]
-    else:
-        dec_params = [args.bp_max_iter, args.bp_order]
     
     # Determine which codes to run
     available_codes = get_available_codes()
@@ -480,9 +428,9 @@ def main():
     results = {}
     for code in selected_codes:
         results[code] = {
-            "unreduced_random": load_or_create_data(code, "unreduced_random", num_error_points, decoder=args.decoder, dec_params=dec_params, shots=args.shots, resume=args.resume_data),
-            "reduced_random": load_or_create_data(code, "reduced_random", num_error_points, decoder=args.decoder, dec_params=dec_params, shots=args.shots, resume=args.resume_data),
-            "reduced_split": load_or_create_data(code, "reduced_split", num_error_points, decoder=args.decoder, dec_params=dec_params, shots=args.shots, resume=args.resume_data),
+            "unreduced_random": load_or_create_data(code, "unreduced_random", num_error_points, args.decoder, dec_params, args.shots, resume=args.resume_data),
+            "reduced_random": load_or_create_data(code, "reduced_random", num_error_points, args.decoder, dec_params, args.shots, resume=args.resume_data),
+            "reduced_split": load_or_create_data(code, "reduced_split", num_error_points, args.decoder, dec_params, args.shots, resume=args.resume_data),
         }
     
     # Process each code
@@ -515,18 +463,12 @@ def main():
         for i, p in enumerate(ps):
             print(f"\n\tError point {i+1}/{num_error_points}: p={p:.3e}")
             try:
-                metadata = {
-                    "decoder": args.decoder,
-                    "dec_params": dec_params,
-                    "shots": args.shots,
-                    "error_probs": ps
-                }
                 unreduced_random_LER, reduced_random_LER, reduced_split_LER = total_sampling(
                     p1=p/10, p2=p, p_spam=p, rounds=d, decoder=args.decoder, dec_params=dec_params, 
                     shots=args.shots,
                     unreduced_code=unreduced_code, reduced_code=reduced_code,
                     Hx1=Hx1, Hx2=Hx2, Hz1=Hz1, Hz2=Hz2, seed=i+1,
-                    code_name=code_name, error_idx=i, results_for_code=results[code_name], metadata=metadata
+                    code_name=code_name, error_idx=i, results_for_code=results[code_name]
                 )
                 
             except Exception as e:
