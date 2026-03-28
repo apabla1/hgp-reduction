@@ -1,7 +1,18 @@
 import argparse
 import sys
 import importlib
+import os
 import numpy as np
+import matplotlib
+
+# Prefer xcb on Wayland to avoid Qt wayland plugin warnings in some environments.
+if os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland" and "QT_QPA_PLATFORM" not in os.environ:
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
+
+# Use a non-interactive backend when no display server is available.
+if "MPLBACKEND" not in os.environ and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+    matplotlib.use("Agg")
+
 import matplotlib.pyplot as plt
 from typing import cast, Dict, List, Tuple, Any
 from matplotlib import rcParams
@@ -18,6 +29,12 @@ rcParams['text.usetex'] = True
 CODES_DIR = Path(__file__).parent / "codes"
 DATA_DIR = Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
+PS_SWEEP = [
+    0.5e-3, 1.0e-3, 1.5e-3, 2.0e-3, 2.5e-3,
+    3.0e-3, 3.5e-3, 4.0e-3, 4.5e-3, 5.0e-3,
+    5.5e-3, 6.0e-3, 6.5e-3, 7.0e-3, 7.5e-3,
+    8.0e-3, 8.5e-3, 9.0e-3, 9.5e-3, 1.0e-2,
+]
 
 def get_available_codes() -> Dict[str, str]:
     """
@@ -108,7 +125,7 @@ def parse_args():
 
     return args
 
-def sample_HGP_circuit_noise(code, circ, rounds, p2, decoder, dec_params, shots):
+def sample_HGP_circuit_noise(code, circ, rounds, p2, decoder, dec_params, shots, threads=1):
     """
     Take a CNOT syndrome extraction circuit, and run codes
     
@@ -119,9 +136,24 @@ def sample_HGP_circuit_noise(code, circ, rounds, p2, decoder, dec_params, shots)
     :return: logical error rate
     """   
     # Sample CNOT circuit and decode
-    # params: (code, dec, circ, decoding params, p2, shots, rounds)
+    # params: (code, dec, circ, decoding params, p2, shots, rounds, verbose, sampler_seed, worker_id)
     print(f"\t\tSampling CNOT circuit and decoding via {decoder}...")
-    failures = num_failures_BP(code, decoder, circ, dec_params, p2, shots, rounds)
+
+    workers = max(1, min(int(threads), int(shots)))
+    if workers == 1:
+        failures = num_failures_BP(code, decoder, circ, dec_params, p2, shots, rounds)
+    else:
+        base, rem = divmod(shots, workers)
+        shot_chunks = [base + (1 if i < rem else 0) for i in range(workers)]
+        params = [
+            (code, decoder, circ, dec_params, p2, s, rounds, True, None, i + 1)
+            for i, s in enumerate(shot_chunks)
+            if s > 0
+        ]
+        print(f"\t\tRunning in parallel with {len(params)} worker processes...")
+        with Pool(processes=len(params)) as pool:
+            failures = int(np.sum(pool.starmap(num_failures_BP, params)))
+
     ler = failures/shots
     
     print(f"\t\tNumber of failed shots: {failures} out of {shots}")
@@ -129,12 +161,7 @@ def sample_HGP_circuit_noise(code, circ, rounds, p2, decoder, dec_params, shots)
     
     return ler
 
-def parallel_sample_wrapper(params_tuple):
-    """Wrapper for parallel sampling that calls num_failures_BP"""
-    code, dec, circ, dec_params, p2, shots, rounds = params_tuple
-    return num_failures_BP(code, dec, circ, dec_params, p2, shots, rounds)
-    
-def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
+def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots, threads,
                    unreduced_code, reduced_code, Hx1, Hx2, Hz1, Hz2, seed,
                    code_name=None, error_idx=None, results_for_code=None):
     """
@@ -156,7 +183,7 @@ def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
     print("\tGenerating *unreduced* CNOT syndrome circuit with random syndrome extraction...")
     unreduced_random_circ = generate_full_circuit(unreduced_code, rounds, p1, p2, p_spam, seed)
     unreduced_random_LER = sample_HGP_circuit_noise(
-        unreduced_code, unreduced_random_circ, rounds, p2, decoder, dec_params, shots
+        unreduced_code, unreduced_random_circ, rounds, p2, decoder, dec_params, shots, threads=threads
     )
     if results_for_code is not None and error_idx is not None and code_name is not None:
         unreduced_failures = int(unreduced_random_LER * shots)
@@ -168,7 +195,7 @@ def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
     print("\tGenerating *reduced* CNOT syndrome circuit with random syndrome extraction...")
     reduced_random_circ = generate_full_circuit(reduced_code, rounds, p1, p2, p_spam, seed)
     reduced_random_LER = sample_HGP_circuit_noise(
-        reduced_code, reduced_random_circ, rounds, p2, decoder, dec_params, shots
+        reduced_code, reduced_random_circ, rounds, p2, decoder, dec_params, shots, threads=threads
     )
     if results_for_code is not None and error_idx is not None and code_name is not None:
         reduced_random_failures = int(reduced_random_LER * shots)
@@ -180,7 +207,7 @@ def total_sampling(p1, p2, p_spam, rounds, decoder, dec_params, shots,
     print("\tGenerating *reduced* CNOT syndrome circuit with split syndrome extraction...")
     reduced_split_circ = generate_full_circuit_split(Hx1, Hx2, Hz1, Hz2, rounds, p1, p2, p_spam, seed)
     reduced_split_LER = sample_HGP_circuit_noise(
-        reduced_code, reduced_split_circ, rounds, p2, decoder, dec_params, shots
+        reduced_code, reduced_split_circ, rounds, p2, decoder, dec_params, shots, threads=threads
     )
     if results_for_code is not None and error_idx is not None and code_name is not None:
         reduced_split_failures = int(reduced_split_LER * shots)
@@ -273,6 +300,11 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
     
     p_array = np.array(ps, dtype=float)
     sort_idx = np.argsort(p_array)
+
+    def _safe_binom_std(ler_sorted: np.ndarray, shots_sorted: np.ndarray) -> np.ndarray:
+        """Binomial standard error with zero when total shots are zero."""
+        var = ler_sorted * (1 - ler_sorted)
+        return np.sqrt(np.divide(var, shots_sorted, where=shots_sorted > 0, out=np.zeros_like(var, dtype=float)))
     
     for idx, code_name in enumerate(selected_codes):
         ax = axes[idx]
@@ -298,9 +330,9 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
         ler_red_split_sorted = ler_red_split[sort_idx]
         
         # Use total accumulated shots for standard error calculation
-        std_unred = np.sqrt(ler_unred_sorted * (1 - ler_unred_sorted) / unred_data[sort_idx, 1])
-        std_red_split = np.sqrt(ler_red_split_sorted * (1 - ler_red_split_sorted) / red_split_data[sort_idx, 1])
-        std_red_rand = np.sqrt(ler_red_rand_sorted * (1 - ler_red_rand_sorted) / red_rand_data[sort_idx, 1])
+        std_unred = _safe_binom_std(ler_unred_sorted, unred_data[sort_idx, 1])
+        std_red_split = _safe_binom_std(ler_red_split_sorted, red_split_data[sort_idx, 1])
+        std_red_rand = _safe_binom_std(ler_red_rand_sorted, red_rand_data[sort_idx, 1])
         
         ax.errorbar(p_plot, ler_unred_sorted, yerr=std_unred, fmt='.-', capsize=3, alpha=1,
                     label='original, random SE')
@@ -311,9 +343,12 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
         
         ax.set_title(code_name.replace('_', ' ').title(), fontsize=14)
         ax.set_xlabel(r'$p$', fontsize=16)
-        ax.set_xscale('log')
-        ax.set_yscale('log')
+        ax.set_xscale('linear')
+        ax.set_yscale('linear')
         ax.set_xlim(8E-4, 1E-2)
+        ax.set_xticks(p_plot)
+        ax.set_xticklabels([f"{p:.4f}" for p in p_plot], rotation=45, ha='right')
+        ax.tick_params(axis='x', which='both', labelbottom=True)
         ax.grid(True, which='both', axis='both')
     
     # Hide extra subplots if number of codes is not a multiple of 3
@@ -346,6 +381,7 @@ def plot_results(results, selected_codes, ps, decoder=None, dec_params=None, sho
         plt.savefig(plot_filename, bbox_inches='tight')
         print(f"Plot saved to {plot_filename}")
     
+    backend = plt.get_backend().lower()
     plt.show()
 
 
@@ -386,7 +422,7 @@ def main():
         else:
             selected_codes = sorted(available_codes.keys())
         
-        ps = [7e-4, 7.5e-4, 8e-4, 8.5e-4, 9e-4, 9.5e-4, 1e-3, 1.5e-3, 2e-3, 2.5e-3, 3e-3, 3.5e-3, 4e-3]
+        ps = PS_SWEEP
         num_error_points = len(ps)
         
         results = {}
@@ -397,7 +433,7 @@ def main():
                 "reduced_split": load_or_create_data(code, "reduced_split", num_error_points, args.decoder, dec_params, args.shots, resume=True),
             }
         
-        plot_results(results, selected_codes, ps)
+        plot_results(results, selected_codes, ps, decoder=args.decoder, dec_params=dec_params, shots=args.shots)
         return
     
     # Validate required arguments for simulation mode
@@ -421,7 +457,7 @@ def main():
     print(f"Selected codes: {selected_codes}")
     
     # Define error probability sweep
-    ps = [7e-4, 7.5e-4, 8e-4, 8.5e-4, 9e-4, 9.5e-4, 1e-3, 1.5e-3, 2e-3, 2.5e-3, 3e-3, 3.5e-3, 4e-3]
+    ps = PS_SWEEP
     num_error_points = len(ps)
     
     # Results storage - format: {code: {variant: [[failures, total_shots], ...]}}
@@ -465,7 +501,7 @@ def main():
             try:
                 unreduced_random_LER, reduced_random_LER, reduced_split_LER = total_sampling(
                     p1=p/10, p2=p, p_spam=p, rounds=d, decoder=args.decoder, dec_params=dec_params, 
-                    shots=args.shots,
+                    shots=args.shots, threads=args.threads,
                     unreduced_code=unreduced_code, reduced_code=reduced_code,
                     Hx1=Hx1, Hx2=Hx2, Hz1=Hz1, Hz2=Hz2, seed=i+1,
                     code_name=code_name, error_idx=i, results_for_code=results[code_name]

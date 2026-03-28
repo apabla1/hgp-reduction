@@ -12,7 +12,7 @@ def _fmt_secs(sec: float) -> str:
     h, m = divmod(m, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
-def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
+def num_failures_BP(code, dec, circ, params, p2, shots, rounds, verbose=True, sampler_seed=None, worker_id=None):
     """
     code: css code object
     dec: decoder type ('OSD' or 'LSD' or 'Relay')
@@ -75,7 +75,8 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
                                         gamma_dist_interval=gamma_dist_interval, stop_nconv=stop_nconv)
 
 ### Sampling
-    sampler = circ.compile_sampler()
+    # Use an explicit seed when provided so parallel workers do not duplicate RNG streams.
+    sampler = circ.compile_sampler(seed=sampler_seed) if sampler_seed is not None else circ.compile_sampler()
     num_failures = 0
     shot_num = 0
 
@@ -92,13 +93,15 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds):
     for num_shots in batch_sizes:
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
-            print(f"\tShot 0 of {shots} (elapsed 0:00)") if shot_num == 0 else None
             shot_num += 1
-            if shot_num % max(1, shots // 5) == 0 or shot_num == shots:
+            if verbose and (shot_num % max(1, shots // 5) == 0 or shot_num == shots):
                 elapsed = time.perf_counter() - t0
                 rate = shot_num / elapsed
                 eta = (shots - shot_num) / rate if rate > 0 else float("inf")
-                print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
+                if worker_id is None:
+                    print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
+                else:
+                    print(f"\tWorker #{worker_id}: Shot {shot_num} out of {shots} (eta {_fmt_secs(eta)})")
             syndromes = np.zeros([rounds+1,m], dtype=int) 
             meas = output[i, :-n]  # all ancilla measurement bits (Z then X each round)
             per_round = meas.size // rounds  # should be mz + mx
