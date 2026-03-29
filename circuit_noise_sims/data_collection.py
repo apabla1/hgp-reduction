@@ -176,20 +176,19 @@ def main() -> None:
     p_values = parse_p_values(args.p_values)
 
     available_codes = get_available_codes()
-    if args.codes:
-        selected_codes = list(args.codes)
+    selected_codes = sorted(available_codes.keys()) if args.codes is None else list(args.codes)
+    if args.codes is not None:
         validate_selected_codes(selected_codes)
-    else:
-        selected_codes = sorted(available_codes.keys())
 
+    print(f"{'=' * 60}")
     print(f"Selected codes: {selected_codes}")
     print(f"Using p values: {p_values}")
-    print("Data appending mode is enabled by default for matching decoder parameters.")
+    print(f"{'=' * 60}\n\n")
 
     for code_name in selected_codes:
-        print(f"\n{'=' * 60}")
+        print(f"\n{'-' * 60}")
         print(f"Sampling {code_name.upper()} Code")
-        print(f"{'=' * 60}")
+        print(f"{'-' * 60}")
 
         try:
             print("\tGenerating HGP code...")
