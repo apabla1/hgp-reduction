@@ -3,8 +3,6 @@ Simulation and plotting are now split into two scripts:
 - `data_collection.py`: runs noisy simulations and appends to saved data.
 - `plotting.py`: loads saved data and generates plots.
 
-`noise_sims.py` remains as a compatibility wrapper that forwards to `data_collection.py`.
-
 ## Data collection examples
 
 ```bash
@@ -32,6 +30,9 @@ python3 plotting.py --decoder Relay --p-min 1e-3 --p-max 6e-3
 
 # Plot selected codes for BP-OSD custom settings
 python3 plotting.py --decoder OSD --bp-max-iter 100 --bp-max-order 10 --codes heawood_cycle K33_cycle
+
+# Plot without LaTeX text rendering (recommended if TeX errors occur)
+python3 plotting.py --decoder Relay --codes heawood_cycle K33_cycle --p-min 5e-4 --p-max 1e-2 --no-tex
 ```
 
 ## Data layout
@@ -51,3 +52,17 @@ data/
 
 Each file stores rows of `[p, failures, total_shots]`.
 When `data_collection.py` is re-run with the same decoder configuration, it appends shots to matching `p` rows by default.
+
+## Requirements
+
+Install Python dependencies:
+
+python3 -m pip install -r requirements/python.txt
+
+Install Python dependencies and optional LaTeX system packages (Ubuntu/Debian):
+
+bash requirements/install_requirements.sh --with-latex
+
+If you only want Python dependencies:
+
+bash requirements/install_requirements.sh

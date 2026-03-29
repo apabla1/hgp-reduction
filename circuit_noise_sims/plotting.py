@@ -82,6 +82,15 @@ def _safe_binom_std(ler_values: np.ndarray, shot_counts: np.ndarray) -> np.ndarr
     return np.sqrt(np.divide(var, shot_counts, where=shot_counts > 0, out=np.zeros_like(var, dtype=float)))
 
 
+def _format_p_for_path(value: float) -> str:
+    text = f"{value:.10f}".rstrip("0").rstrip(".")
+    if text.startswith("."):
+        return f"0{text}"
+    if text == "":
+        return "0"
+    return text
+
+
 def _load_variant_data(code_name: str, decoder: str, dec_params: List[Any],
                        p_min: Optional[float], p_max: Optional[float]) -> Dict[str, np.ndarray]:
     loaded: Dict[str, np.ndarray] = {}
@@ -170,12 +179,27 @@ def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List
 
     plt.tight_layout()
 
-    plots_dir = Path("plots")
-    plots_dir.mkdir(exist_ok=True)
+    plotted_p_values: List[float] = []
+    for code_name in selected_codes:
+        for variant in VARIANTS:
+            data = results[code_name][variant]
+            if data.size > 0:
+                plotted_p_values.extend(data[:, 0].tolist())
+
+    if not plotted_p_values:
+        print("No p values found for saved plot path.", file=sys.stderr)
+        return
+
     tag = decoder_config_tag(decoder, dec_params)
-    range_label = f"p{p_min if p_min is not None else 'min'}to{p_max if p_max is not None else 'max'}"
+    p_low = p_min if p_min is not None else min(plotted_p_values)
+    p_high = p_max if p_max is not None else max(plotted_p_values)
+    range_label = f"{_format_p_for_path(float(p_low))}to{_format_p_for_path(float(p_high))}"
+
+    plots_dir = Path(__file__).parent / "plots" / tag / range_label
+    plots_dir.mkdir(parents=True, exist_ok=True)
+
     code_label = "-".join(selected_codes)
-    out_path = plots_dir / f"{code_label}_{tag}_{range_label}.pdf"
+    out_path = plots_dir / f"{code_label}.pdf"
     plt.savefig(out_path, bbox_inches="tight")
     print(f"Plot saved to {out_path}")
 
