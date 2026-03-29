@@ -33,34 +33,35 @@ rcParams["text.usetex"] = True
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Plot existing noisy-simulation data.")
-    parser.add_argument("--decoder", type=str, required=True, choices=["OSD", "LSD", "Relay"],
-                        help="Decoder used to generate data.")
+    parser.add_argument("--decoder", type=str, default=None, choices=["OSD", "LSD", "Relay"],
+                        help="Decoder used to generate data: Choose \"OSD\", \"LSD\", or \"Relay\".")
     parser.add_argument("--codes", type=str, nargs="+", default=None,
-                        help="Codes to plot. If omitted, all available codes are considered.")
-    parser.add_argument("--list-codes", action="store_true", help="List available codes and exit.")
+                        help="Codes to plot. (DEFAULT: all available codes).")
+    parser.add_argument("--list-codes", action="store_true",
+                        help="List available codes and exit.")
     parser.add_argument("--p-min", type=float, default=None,
-                        help="Minimum p to include on plots (inclusive).")
+                        help="Minimum p to include on plots (inclusive). (DEFAULT: minimum value)")
     parser.add_argument("--p-max", type=float, default=None,
-                        help="Maximum p to include on plots (inclusive).")
+                        help="Maximum p to include on plots (inclusive). (DEFAULT: maximum value)")
 
     parser.add_argument("--bp-max-iter", type=int, default=80,
-                        help="Maximum BP iterations for OSD/LSD (default: 80)")
+                        help="Maximum BP iterations for OSD/LSD (DEFAULT: 80)")
     parser.add_argument("--bp-max-order", "--bp-order", dest="bp_order", type=int, default=5,
-                        help="OSD/LSD order (default: 5)")
+                        help="OSD/LSD order (DEFAULT: 5)")
 
     parser.add_argument("--relay-gamma0", type=float, default=0.65,
-                        help="Uniform memory weight for first Relay ensemble.")
+                        help="Uniform memory weight for first Relay ensemble. (DEFAULT: 0.65)")
     parser.add_argument("--relay-pre-iter", type=int, default=80,
-                        help="Max Relay iterations in first ensemble.")
+                        help="Max Relay iterations in first ensemble. (DEFAULT: 80)")
     parser.add_argument("--relay-num-sets", type=int, default=100,
-                        help="Number of Relay ensemble elements.")
+                        help="Number of Relay ensemble elements. (DEFAULT: 100)")
     parser.add_argument("--relay-max-iter", type=int, default=60,
-                        help="Max BP iterations per Relay ensemble.")
+                        help="Max BP iterations per Relay ensemble. (DEFAULT: 60)")
     parser.add_argument("--relay-gamma-dist-interval", type=float, nargs=2,
                         default=(-0.24, 0.66), metavar=("LOW", "HIGH"),
-                        help="Uniform range for disordered memory weight.")
+                        help="Uniform range for disordered memory weight. (DEFAULT: -0.24 0.66)")
     parser.add_argument("--relay-stop-nconv", type=int, default=5,
-                        help="Number of Relay solutions to find before stopping.")
+                        help="Number of Relay solutions to find before stopping. (DEFAULT: 5)")
 
     args = parser.parse_args()
 
@@ -70,6 +71,9 @@ def parse_args() -> argparse.Namespace:
         for code_name in sorted(available.keys()):
             print(f"  - {code_name}")
         sys.exit(0)
+
+    if args.decoder is None:
+        parser.error("the following arguments are required: --decoder")
 
     if args.p_min is not None and args.p_max is not None and args.p_min > args.p_max:
         raise ValueError("--p-min must be <= --p-max")
@@ -102,6 +106,22 @@ def _load_variant_data(code_name: str, decoder: str, dec_params: List[Any],
         data = load_data_table(path)
         loaded[variant] = select_rows_in_range(data, p_min, p_max)
     return loaded
+
+
+def _collect_available_p_values(selected_codes: List[str], decoder: str, dec_params: List[Any]) -> np.ndarray:
+    p_values: List[float] = []
+    for code_name in selected_codes:
+        for variant in VARIANTS:
+            path = get_data_path(code_name, variant, decoder, dec_params)
+            if not path.exists():
+                continue
+            data = load_data_table(path)
+            if data.size > 0:
+                p_values.extend(data[:, 0].tolist())
+
+    if not p_values:
+        return np.array([], dtype=float)
+    return np.unique(np.array(p_values, dtype=float))
 
 
 def _plot_one_variant(ax: Axes, data: np.ndarray, label: str) -> None:
@@ -217,11 +237,25 @@ def main() -> None:
     else:
         selected_codes = sorted(available_codes.keys())
 
+    available_p_values = _collect_available_p_values(selected_codes, args.decoder, dec_params)
+    if (args.p_min is None or args.p_max is None) and available_p_values.size == 0:
+        raise ValueError("Could not infer --p-min/--p-max defaults because no saved data was found.")
+
+    resolved_p_min = float(np.min(available_p_values)) if args.p_min is None else float(args.p_min)
+    resolved_p_max = float(np.max(available_p_values)) if args.p_max is None else float(args.p_max)
+
+    if resolved_p_min > resolved_p_max:
+        raise ValueError("--p-min must be <= --p-max")
+    if np.isclose(resolved_p_min, resolved_p_max, atol=1e-15, rtol=0.0):
+        raise ValueError("Resolved p range is degenerate: --p-min must be different from --p-max")
+
+    print(f"Using p range: [{resolved_p_min:.6g}, {resolved_p_max:.6g}]")
+
     results: Dict[str, Dict[str, np.ndarray]] = {}
     plotted_codes: List[str] = []
 
     for code_name in selected_codes:
-        code_data = _load_variant_data(code_name, args.decoder, dec_params, args.p_min, args.p_max)
+        code_data = _load_variant_data(code_name, args.decoder, dec_params, resolved_p_min, resolved_p_max)
         has_any = any(code_data[variant].size > 0 for variant in VARIANTS)
         if not has_any:
             print(
@@ -236,7 +270,7 @@ def main() -> None:
         print("No data found to plot for the requested selection.", file=sys.stderr)
         sys.exit(1)
 
-    plot_results(results, plotted_codes, args.decoder, dec_params, args.p_min, args.p_max)
+    plot_results(results, plotted_codes, args.decoder, dec_params, resolved_p_min, resolved_p_max)
 
 
 if __name__ == "__main__":

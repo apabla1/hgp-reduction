@@ -33,38 +33,41 @@ from functions.sim_common import (
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run noisy simulations and append data tables.")
-    parser.add_argument("--shots", type=int, required=True, help="Number of circuit samples to decode.")
-    parser.add_argument("--decoder", type=str, required=True, choices=["OSD", "LSD", "Relay"],
+    parser.add_argument("--shots", type=int, default=None,
+                        help="Number of circuit samples to decode.")
+    parser.add_argument("--decoder", type=str, default=None, choices=["OSD", "LSD", "Relay"],
                         help="Decoder to use: OSD, LSD, or Relay.")
     parser.add_argument("--codes", type=str, nargs="+", default=None,
-                        help="Codes to simulate. If omitted, all available codes are used.")
-    parser.add_argument("--list-codes", action="store_true", help="List available codes and exit.")
+                        help="Codes to simulate. (DEFAULT: all available codes)")
+    parser.add_argument("--list-codes", action="store_true",
+                        help="List available codes and exit.")
     parser.add_argument("--threads", type=int, default=4,
-                        help="Number of parallel worker processes for sampling.")
+                        help="Number of parallel worker processes for sampling. (DEFAULT: 4)")
     parser.add_argument("--p-values", nargs="+", default=None,
                         help=(
                             "Specific p values to simulate. Accepts space-separated and/or comma-separated values, "
-                            "for example: --p-values 5e-4 1e-3 2e-3 or --p-values 5e-4,1e-3,2e-3"
+                            "for example: --p-values 5e-4 1e-3 2e-3 or --p-values 5e-4,1e-3,2e-3 "
+                            "(DEFAULT: 0.0005 to 0.01 in steps of 0.0005)"
                         ))
 
     parser.add_argument("--bp-max-iter", type=int, default=80,
-                        help="Maximum BP iterations for OSD/LSD (default: 80)")
+                        help="Maximum BP iterations for OSD/LSD (DEFAULT: 80)")
     parser.add_argument("--bp-max-order", "--bp-order", dest="bp_order", type=int, default=5,
-                        help="OSD/LSD order (default: 5)")
+                        help="OSD/LSD order (DEFAULT: 5)")
 
     parser.add_argument("--relay-gamma0", type=float, default=0.65,
-                        help="Uniform memory weight for first Relay ensemble.")
+                        help="Uniform memory weight for first Relay ensemble. (DEFAULT: 0.65)")
     parser.add_argument("--relay-pre-iter", type=int, default=80,
-                        help="Max Relay iterations in first ensemble.")
+                        help="Max Relay iterations in first ensemble. (DEFAULT: 80)")
     parser.add_argument("--relay-num-sets", type=int, default=100,
-                        help="Number of Relay ensemble elements.")
+                        help="Number of Relay ensemble elements. (DEFAULT: 100)")
     parser.add_argument("--relay-max-iter", type=int, default=60,
-                        help="Max BP iterations per Relay ensemble.")
+                        help="Max BP iterations per Relay ensemble. (DEFAULT: 60)")
     parser.add_argument("--relay-gamma-dist-interval", type=float, nargs=2,
                         default=(-0.24, 0.66), metavar=("LOW", "HIGH"),
-                        help="Uniform range for disordered memory weight.")
+                        help="Uniform range for disordered memory weight. (DEFAULT: -0.24 0.66)")
     parser.add_argument("--relay-stop-nconv", type=int, default=5,
-                        help="Number of Relay solutions to find before stopping.")
+                        help="Number of Relay solutions to find before stopping. (DEFAULT: 5)")
 
     args = parser.parse_args()
 
@@ -74,6 +77,9 @@ def parse_args() -> argparse.Namespace:
         for code_name in sorted(available.keys()):
             print(f"  - {code_name}")
         sys.exit(0)
+
+    if args.shots is None or args.decoder is None:
+        parser.error("the following arguments are required: --shots, --decoder")
 
     if args.shots <= 0:
         raise ValueError("--shots must be positive")

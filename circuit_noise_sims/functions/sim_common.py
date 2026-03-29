@@ -5,8 +5,9 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 import numpy as np
 
-CODES_DIR = Path(__file__).parent / "codes"
-DATA_DIR = Path(__file__).parent / "data"
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+CODES_DIR = PROJECT_ROOT / "codes"
+DATA_DIR = PROJECT_ROOT / "data"
 DATA_DIR.mkdir(exist_ok=True)
 
 VARIANTS: Tuple[str, str, str] = (
