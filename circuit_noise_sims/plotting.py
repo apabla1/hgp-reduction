@@ -156,6 +156,19 @@ def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List
     else:
         axes = np.array([axes])
 
+    global_p_values_list: List[np.ndarray] = []
+    for code_name in selected_codes:
+        for variant in VARIANTS:
+            variant_data = results[code_name][variant]
+            if variant_data.size > 0:
+                global_p_values_list.append(variant_data[:, 0])
+
+    global_p_values = (
+        np.unique(np.sort(np.concatenate(global_p_values_list)))
+        if global_p_values_list
+        else np.array([], dtype=float)
+    )
+
     for idx, code_name in enumerate(selected_codes):
         ax = axes[idx]
 
@@ -169,27 +182,21 @@ def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List
         ax.set_yscale("linear")
         ax.grid(True, which="both", axis="both")
 
-        p_values_union = np.concatenate(
-            [
-                results[code_name]["unreduced_random"][:, 0] if results[code_name]["unreduced_random"].size else np.array([]),
-                results[code_name]["reduced_random"][:, 0] if results[code_name]["reduced_random"].size else np.array([]),
-                results[code_name]["reduced_split"][:, 0] if results[code_name]["reduced_split"].size else np.array([]),
-            ]
-        )
-        if p_values_union.size > 0:
-            ticks = np.unique(np.sort(p_values_union))
-            ax.set_xticks(ticks)
-            ax.set_xticklabels([f"{p:.4f}" for p in ticks], rotation=45, ha="right")
-            ax.tick_params(axis="x", which="both", labelbottom=True)
-
+    if global_p_values.size > 0:
         if p_min is not None and p_max is not None:
-            ax.set_xlim(p_min, p_max)
+            x_left, x_right = p_min, p_max
         elif p_min is not None:
-            right = np.max(p_values_union) if p_values_union.size > 0 else p_min
-            ax.set_xlim(p_min, right)
+            x_left, x_right = p_min, float(np.max(global_p_values))
         elif p_max is not None:
-            left = np.min(p_values_union) if p_values_union.size > 0 else p_max
-            ax.set_xlim(left, p_max)
+            x_left, x_right = float(np.min(global_p_values)), p_max
+        else:
+            x_left, x_right = float(np.min(global_p_values)), float(np.max(global_p_values))
+
+        for ax in axes[:num_codes]:
+            ax.set_xlim(x_left, x_right)
+            ax.set_xticks(global_p_values)
+            ax.set_xticklabels([f"{p:.4f}" for p in global_p_values], rotation=45, ha="right")
+            ax.tick_params(axis="x", which="both", labelbottom=True)
 
     for idx in range(num_codes, len(axes)):
         axes[idx].axis("off")
