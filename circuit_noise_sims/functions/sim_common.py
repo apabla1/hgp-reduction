@@ -91,7 +91,12 @@ def weight_stats(H: Any) -> Tuple[Any, Any, float, Any, Any, float]:
     else:
         rw = H.sum(axis=1)
         cw = H.sum(axis=0)
-    return (rw.min(), rw.max(), round(float(rw.mean()), 3), cw.min(), cw.max(), round(float(cw.mean()), 3))
+
+    rmin = int(np.asarray(rw).min())
+    rmax = int(np.asarray(rw).max())
+    cmin = int(np.asarray(cw).min())
+    cmax = int(np.asarray(cw).max())
+    return (rmin, rmax, round(float(rw.mean()), 3), cmin, cmax, round(float(cw.mean()), 3))
 
 
 def parse_decoder_params(args: Any) -> List[Any]:
