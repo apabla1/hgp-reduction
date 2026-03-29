@@ -1,0 +1,219 @@
+import argparse
+import os
+import sys
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib import rcParams
+from matplotlib.axes import Axes
+
+if os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland" and "QT_QPA_PLATFORM" not in os.environ:
+    os.environ["QT_QPA_PLATFORM"] = "xcb"
+
+if "MPLBACKEND" not in os.environ and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+    matplotlib.use("Agg")
+
+from sim_common import (
+    VARIANTS,
+    decoder_config_tag,
+    get_available_codes,
+    get_data_path,
+    load_data_table,
+    parse_decoder_params,
+    select_rows_in_range,
+    validate_selected_codes,
+)
+
+rcParams["font.size"] = 14
+rcParams["text.usetex"] = True
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Plot existing noisy-simulation data.")
+    parser.add_argument("--decoder", type=str, required=True, choices=["OSD", "LSD", "Relay"],
+                        help="Decoder used to generate data.")
+    parser.add_argument("--codes", type=str, nargs="+", default=None,
+                        help="Codes to plot. If omitted, all available codes are considered.")
+    parser.add_argument("--list-codes", action="store_true", help="List available codes and exit.")
+    parser.add_argument("--p-min", type=float, default=None,
+                        help="Minimum p to include on plots (inclusive).")
+    parser.add_argument("--p-max", type=float, default=None,
+                        help="Maximum p to include on plots (inclusive).")
+
+    parser.add_argument("--bp-max-iter", type=int, default=80,
+                        help="Maximum BP iterations for OSD/LSD (default: 80)")
+    parser.add_argument("--bp-max-order", "--bp-order", dest="bp_order", type=int, default=5,
+                        help="OSD/LSD order (default: 5)")
+
+    parser.add_argument("--relay-gamma0", type=float, default=0.65,
+                        help="Uniform memory weight for first Relay ensemble.")
+    parser.add_argument("--relay-pre-iter", type=int, default=80,
+                        help="Max Relay iterations in first ensemble.")
+    parser.add_argument("--relay-num-sets", type=int, default=100,
+                        help="Number of Relay ensemble elements.")
+    parser.add_argument("--relay-max-iter", type=int, default=60,
+                        help="Max BP iterations per Relay ensemble.")
+    parser.add_argument("--relay-gamma-dist-interval", type=float, nargs=2,
+                        default=(-0.24, 0.66), metavar=("LOW", "HIGH"),
+                        help="Uniform range for disordered memory weight.")
+    parser.add_argument("--relay-stop-nconv", type=int, default=5,
+                        help="Number of Relay solutions to find before stopping.")
+
+    args = parser.parse_args()
+
+    if args.list_codes:
+        available = get_available_codes()
+        print("Available codes:")
+        for code_name in sorted(available.keys()):
+            print(f"  - {code_name}")
+        sys.exit(0)
+
+    if args.p_min is not None and args.p_max is not None and args.p_min > args.p_max:
+        raise ValueError("--p-min must be <= --p-max")
+
+    return args
+
+
+def _safe_binom_std(ler_values: np.ndarray, shot_counts: np.ndarray) -> np.ndarray:
+    var = ler_values * (1 - ler_values)
+    return np.sqrt(np.divide(var, shot_counts, where=shot_counts > 0, out=np.zeros_like(var, dtype=float)))
+
+
+def _load_variant_data(code_name: str, decoder: str, dec_params: List[Any],
+                       p_min: Optional[float], p_max: Optional[float]) -> Dict[str, np.ndarray]:
+    loaded: Dict[str, np.ndarray] = {}
+    for variant in VARIANTS:
+        path = get_data_path(code_name, variant, decoder, dec_params)
+        if not path.exists():
+            loaded[variant] = np.zeros((0, 3), dtype=float)
+            continue
+        data = load_data_table(path)
+        loaded[variant] = select_rows_in_range(data, p_min, p_max)
+    return loaded
+
+
+def _plot_one_variant(ax: Axes, data: np.ndarray, label: str) -> None:
+    if data.size == 0:
+        return
+
+    ordered = data[np.argsort(data[:, 0])]
+    p_vals = ordered[:, 0]
+    failures = ordered[:, 1]
+    shots = ordered[:, 2]
+    lers = np.divide(failures, shots, where=shots > 0, out=np.zeros_like(failures, dtype=float))
+    stds = _safe_binom_std(lers, shots)
+
+    ax.errorbar(p_vals, lers, yerr=stds, fmt=".-", capsize=3, alpha=1, label=label)
+
+
+def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List[str],
+                 decoder: str, dec_params: List[Any], p_min: Optional[float], p_max: Optional[float]) -> None:
+    import math
+
+    if len(selected_codes) == 0:
+        print("No codes selected for plotting.")
+        return
+
+    num_codes = len(selected_codes)
+    num_cols = 3
+    num_rows = math.ceil(num_codes / num_cols)
+
+    fig, axes = plt.subplots(num_rows, num_cols, figsize=(5 * num_cols, 4 * num_rows), sharex=True, sharey=True)
+    if isinstance(axes, np.ndarray):
+        axes = axes.flatten()
+    else:
+        axes = np.array([axes])
+
+    for idx, code_name in enumerate(selected_codes):
+        ax = axes[idx]
+
+        _plot_one_variant(ax, results[code_name]["unreduced_random"], "original, random SE")
+        _plot_one_variant(ax, results[code_name]["reduced_split"], "reduced, split SE")
+        _plot_one_variant(ax, results[code_name]["reduced_random"], "reduced, random SE")
+
+        ax.set_title(code_name.replace("_", " ").title(), fontsize=14)
+        ax.set_xlabel(r"$p$", fontsize=16)
+        ax.set_xscale("linear")
+        ax.set_yscale("linear")
+        ax.grid(True, which="both", axis="both")
+
+        p_values_union = np.concatenate(
+            [
+                results[code_name]["unreduced_random"][:, 0] if results[code_name]["unreduced_random"].size else np.array([]),
+                results[code_name]["reduced_random"][:, 0] if results[code_name]["reduced_random"].size else np.array([]),
+                results[code_name]["reduced_split"][:, 0] if results[code_name]["reduced_split"].size else np.array([]),
+            ]
+        )
+        if p_values_union.size > 0:
+            ticks = np.unique(np.sort(p_values_union))
+            ax.set_xticks(ticks)
+            ax.set_xticklabels([f"{p:.4f}" for p in ticks], rotation=45, ha="right")
+            ax.tick_params(axis="x", which="both", labelbottom=True)
+
+        if p_min is not None and p_max is not None:
+            ax.set_xlim(p_min, p_max)
+        elif p_min is not None:
+            right = np.max(p_values_union) if p_values_union.size > 0 else p_min
+            ax.set_xlim(p_min, right)
+        elif p_max is not None:
+            left = np.min(p_values_union) if p_values_union.size > 0 else p_max
+            ax.set_xlim(left, p_max)
+
+    for idx in range(num_codes, len(axes)):
+        axes[idx].axis("off")
+
+    axes[0].set_ylabel(r"Logical failure probability", fontsize=16)
+    axes[0].legend(fontsize=12, loc="lower right")
+
+    plt.tight_layout()
+
+    plots_dir = Path("plots")
+    plots_dir.mkdir(exist_ok=True)
+    tag = decoder_config_tag(decoder, dec_params)
+    range_label = f"p{p_min if p_min is not None else 'min'}to{p_max if p_max is not None else 'max'}"
+    code_label = "-".join(selected_codes)
+    out_path = plots_dir / f"{code_label}_{tag}_{range_label}.pdf"
+    plt.savefig(out_path, bbox_inches="tight")
+    print(f"Plot saved to {out_path}")
+
+    plt.show()
+
+
+def main() -> None:
+    args = parse_args()
+    dec_params = parse_decoder_params(args)
+
+    available_codes = get_available_codes()
+    if args.codes:
+        selected_codes = list(args.codes)
+        validate_selected_codes(selected_codes)
+    else:
+        selected_codes = sorted(available_codes.keys())
+
+    results: Dict[str, Dict[str, np.ndarray]] = {}
+    plotted_codes: List[str] = []
+
+    for code_name in selected_codes:
+        code_data = _load_variant_data(code_name, args.decoder, dec_params, args.p_min, args.p_max)
+        has_any = any(code_data[variant].size > 0 for variant in VARIANTS)
+        if not has_any:
+            print(
+                f"Skipping {code_name}: no matching data found for decoder/config and p range.",
+                file=sys.stderr,
+            )
+            continue
+        results[code_name] = code_data
+        plotted_codes.append(code_name)
+
+    if not plotted_codes:
+        print("No data found to plot for the requested selection.", file=sys.stderr)
+        sys.exit(1)
+
+    plot_results(results, plotted_codes, args.decoder, dec_params, args.p_min, args.p_max)
+
+
+if __name__ == "__main__":
+    main()
