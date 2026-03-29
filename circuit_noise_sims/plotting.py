@@ -16,7 +16,7 @@ if os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland" and "QT_QPA_PLATF
 if "MPLBACKEND" not in os.environ and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
     matplotlib.use("Agg")
 
-from sim_common import (
+from functions.sim_common import (
     VARIANTS,
     decoder_config_tag,
     get_available_codes,

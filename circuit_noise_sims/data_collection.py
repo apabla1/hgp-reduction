@@ -16,7 +16,7 @@ if "MPLBACKEND" not in os.environ and not os.environ.get("DISPLAY") and not os.e
 from functions.H_to_CNOT_circuit import generate_full_circuit, generate_full_circuit_split
 from functions.decoding import num_failures_BP
 from functions.reduction_funcs import get_reduced_code
-from sim_common import (
+from functions.sim_common import (
     VARIANTS,
     append_result_row,
     get_available_codes,
