@@ -155,8 +155,10 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
 
                 if lines:
                     sys.stdout.write(f"\x1b[{len(lines)}F")
-                    sys.stdout.write("\n".join(lines))
-                    sys.stdout.write("\n")
+                    for line in lines:
+                        sys.stdout.write("\x1b[2K")
+                        sys.stdout.write(line)
+                        sys.stdout.write("\n")
                     sys.stdout.flush()
 
             def apply_progress_msg(msg: Dict[str, float]) -> None:
