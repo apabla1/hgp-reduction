@@ -52,7 +52,7 @@ def parse_args() -> argparse.Namespace:
                         help="Codes to simulate. (DEFAULT: all available codes)")
     parser.add_argument("--list-codes", action="store_true",
                         help="List available codes and exit.")
-    parser.add_argument("--threads", type=int, default=4,
+    parser.add_argument("--processes", type=int, default=4,
                         help="Number of parallel worker processes for sampling. (DEFAULT: 4)")
     parser.add_argument("--p-values", nargs="+", default=None,
                         help=(
@@ -99,11 +99,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decoder: str,
-                             dec_params: List[Any], shots: int, threads: int = 1) -> int:
+                             dec_params: List[Any], shots: int, processes: int = 1) -> int:
     """Sample circuit outcomes and return number of logical failures."""
     print(f"\t\tSampling CNOT circuit and decoding via {decoder}...")
 
-    workers = max(1, min(int(threads), int(shots)))
+    workers = max(1, min(int(processes), int(shots)))
     if workers == 1:
         failures = num_failures_BP(code, decoder, circ, dec_params, p2, shots, rounds)
     else:
@@ -122,7 +122,7 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
         else:
             progress_t0 = time.perf_counter()
             worker_state: Dict[int, Dict[str, float]] = {
-                worker_id: {"shot_num": 0.0, "shots": float(s), "done_elapsed": float("nan")}
+                worker_id: {"shot_num": 0.0, "shots": float(s), "num_failures": 0.0, "done_elapsed": float("nan")}
                 for worker_id, s in worker_specs
             }
 
@@ -134,11 +134,13 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
                     state = worker_state[worker_id]
                     shot_num = int(state["shot_num"])
                     total = int(state["shots"])
+                    num_failures = int(state["num_failures"])
                     worker_elapsed = state["done_elapsed"] if np.isfinite(state["done_elapsed"]) else elapsed
                     rate = (shot_num / worker_elapsed) if worker_elapsed > 0 else 0.0
                     eta = ((total - shot_num) / rate) if rate > 0 else float("inf")
                     lines.append(
                         f"\t\tWorker {worker_id}: Shot {shot_num} out of {total} "
+                        f"; {num_failures} failed so far "
                         f"(elapsed {_fmt_secs(worker_elapsed)}, eta {_fmt_secs(eta)})"
                     )
                 return lines
@@ -160,6 +162,7 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
                 worker_state[worker_id] = {
                     "shot_num": float(msg["shot_num"]),
                     "shots": float(msg["shots"]),
+                    "num_failures": float(msg.get("num_failures", worker_state[worker_id]["num_failures"])),
                     "done_elapsed": worker_state[worker_id]["done_elapsed"],
                 }
 
@@ -227,7 +230,7 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
 def run_one_probability(
     p: float,
     shots: int,
-    threads: int,
+    processes: int,
     decoder: str,
     dec_params: List[Any],
     rounds: int,
@@ -251,7 +254,7 @@ def run_one_probability(
         decoder,
         dec_params,
         shots,
-        threads=threads,
+        processes=processes,
     )
 
     print("\tGenerating *reduced* CNOT syndrome circuit with random syndrome extraction...")
@@ -264,7 +267,7 @@ def run_one_probability(
         decoder,
         dec_params,
         shots,
-        threads=threads,
+        processes=processes,
     )
 
     print("\tGenerating *reduced* CNOT syndrome circuit with split syndrome extraction...")
@@ -277,7 +280,7 @@ def run_one_probability(
         decoder,
         dec_params,
         shots,
-        threads=threads,
+        processes=processes,
     )
 
     return {
@@ -339,7 +342,7 @@ def main() -> None:
                 failure_counts = run_one_probability(
                     p=p,
                     shots=args.shots,
-                    threads=args.threads,
+                    processes=args.processes,
                     decoder=args.decoder,
                     dec_params=dec_params,
                     rounds=d,

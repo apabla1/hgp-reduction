@@ -107,20 +107,6 @@ def num_failures_BP(
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
             shot_num += 1
-            if progress_queue is not None and worker_id is not None:
-                progress_queue.put({
-                    "worker_id": int(worker_id),
-                    "shot_num": int(shot_num),
-                    "shots": int(shots),
-                })
-            elif verbose and (shot_num % max(1, shots // 5) == 0 or shot_num == shots):
-                elapsed = time.perf_counter() - t0
-                rate = shot_num / elapsed
-                eta = (shots - shot_num) / rate if rate > 0 else float("inf")
-                if worker_id is None:
-                    print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
-                else:
-                    print(f"\tWorker #{worker_id}: Shot {shot_num} out of {shots} (eta {_fmt_secs(eta)})")
             syndromes = np.zeros([rounds+1,m], dtype=int) 
             meas = output[i, :-n]  # all ancilla measurement bits (Z then X each round)
             per_round = meas.size // rounds  # should be mz + mx
@@ -135,5 +121,21 @@ def num_failures_BP(
             final_state = output[i,-n:] ^ correction
             if (code.lz@final_state%2).any():
                 num_failures += 1
+
+            if progress_queue is not None and worker_id is not None:
+                progress_queue.put({
+                    "worker_id": int(worker_id),
+                    "shot_num": int(shot_num),
+                    "shots": int(shots),
+                    "num_failures": int(num_failures),
+                })
+            elif verbose and (shot_num % max(1, shots // 5) == 0 or shot_num == shots):
+                elapsed = time.perf_counter() - t0
+                rate = shot_num / elapsed
+                eta = (shots - shot_num) / rate if rate > 0 else float("inf")
+                if worker_id is None:
+                    print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
+                else:
+                    print(f"\tWorker #{worker_id}: Shot {shot_num} out of {shots} (eta {_fmt_secs(eta)})")
                 
     return num_failures
