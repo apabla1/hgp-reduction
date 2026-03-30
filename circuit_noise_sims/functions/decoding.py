@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from typing import Any, Optional
 from scipy.sparse import csr_matrix
 from ldpc.bposd_decoder import BpOsdDecoder
 from ldpc.bplsd_decoder import BpLsdDecoder
@@ -12,7 +13,19 @@ def _fmt_secs(sec: float) -> str:
     h, m = divmod(m, 60)
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
-def num_failures_BP(code, dec, circ, params, p2, shots, rounds, verbose=True, sampler_seed=None, worker_id=None):
+def num_failures_BP(
+    code,
+    dec,
+    circ,
+    params,
+    p2,
+    shots,
+    rounds,
+    verbose=True,
+    sampler_seed=None,
+    worker_id=None,
+    progress_queue: Optional[Any] = None,
+):
     """
     code: css code object
     dec: decoder type ('OSD' or 'LSD' or 'Relay')
@@ -94,7 +107,13 @@ def num_failures_BP(code, dec, circ, params, p2, shots, rounds, verbose=True, sa
         output = sampler.sample(shots=num_shots)
         for i in range(num_shots):
             shot_num += 1
-            if verbose and (shot_num % max(1, shots // 5) == 0 or shot_num == shots):
+            if progress_queue is not None and worker_id is not None:
+                progress_queue.put({
+                    "worker_id": int(worker_id),
+                    "shot_num": int(shot_num),
+                    "shots": int(shots),
+                })
+            elif verbose and (shot_num % max(1, shots // 5) == 0 or shot_num == shots):
                 elapsed = time.perf_counter() - t0
                 rate = shot_num / elapsed
                 eta = (shots - shot_num) / rate if rate > 0 else float("inf")

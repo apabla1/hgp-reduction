@@ -1,7 +1,9 @@
 import argparse
 import os
+import queue
 import sys
-from multiprocessing import Pool
+import time
+from multiprocessing import Manager, Pool
 from typing import Any, Dict, List, Tuple
 
 import matplotlib
@@ -29,6 +31,15 @@ from functions.sim_common import (
     validate_selected_codes,
     weight_stats,
 )
+
+
+def _fmt_secs(sec: float) -> str:
+    if not np.isfinite(sec):
+        return "inf"
+    sec = int(sec)
+    m, s = divmod(sec, 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
 def parse_args() -> argparse.Namespace:
@@ -98,14 +109,106 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
     else:
         base, rem = divmod(shots, workers)
         shot_chunks = [base + (1 if i < rem else 0) for i in range(workers)]
-        params = [
-            (code, decoder, circ, dec_params, p2, s, rounds, True, None, i + 1)
-            for i, s in enumerate(shot_chunks)
-            if s > 0
-        ]
-        print(f"\t\tRunning in parallel with {len(params)} worker processes...")
-        with Pool(processes=len(params)) as pool:
-            failures = int(np.sum(pool.starmap(num_failures_BP, params)))
+        worker_specs = [(i + 1, s) for i, s in enumerate(shot_chunks) if s > 0]
+        print(f"\t\tRunning in parallel with {len(worker_specs)} worker processes...")
+
+        if not sys.stdout.isatty(): # if stdout is not a terminal
+            params = [
+                (code, decoder, circ, dec_params, p2, s, rounds, True, None, worker_id)
+                for worker_id, s in worker_specs
+            ]
+            with Pool(processes=len(params)) as pool:
+                failures = int(np.sum(pool.starmap(num_failures_BP, params)))
+        else:
+            progress_t0 = time.perf_counter()
+            worker_state: Dict[int, Dict[str, float]] = {
+                worker_id: {"shot_num": 0.0, "shots": float(s)}
+                for worker_id, s in worker_specs
+            }
+
+            def render_worker_lines() -> List[str]:
+                lines = []
+                now = time.perf_counter()
+                elapsed = max(0.0, now - progress_t0)
+                for worker_id, _ in worker_specs:
+                    state = worker_state[worker_id]
+                    shot_num = int(state["shot_num"])
+                    total = int(state["shots"])
+                    rate = (shot_num / elapsed) if elapsed > 0 else 0.0
+                    eta = ((total - shot_num) / rate) if rate > 0 else float("inf")
+                    lines.append(
+                        f"\t\tWorker {worker_id}: Shot {shot_num} out of {total} "
+                        f"(elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})"
+                    )
+                return lines
+
+            def redraw_worker_lines(initial: bool = False) -> None:
+                lines = render_worker_lines()
+                if initial:
+                    print("\n".join(lines), flush=True)
+                    return
+
+                if lines:
+                    sys.stdout.write(f"\x1b[{len(lines)}F")
+                    sys.stdout.write("\n".join(lines))
+                    sys.stdout.write("\n")
+                    sys.stdout.flush()
+
+            def apply_progress_msg(msg: Dict[str, float]) -> None:
+                worker_id = int(msg["worker_id"])
+                worker_state[worker_id] = {
+                    "shot_num": float(msg["shot_num"]),
+                    "shots": float(msg["shots"]),
+                }
+
+            redraw_worker_lines(initial=True)
+
+            with Manager() as manager:
+                progress_queue = manager.Queue()
+                params = [
+                    (code, decoder, circ, dec_params, p2, s, rounds, False, None, worker_id, progress_queue)
+                    for worker_id, s in worker_specs
+                ]
+
+                with Pool(processes=len(params)) as pool:
+                    result = pool.starmap_async(num_failures_BP, params)
+
+                    last_redraw = 0.0
+                    max_msgs_per_cycle = 64
+                    while not result.ready():
+                        updated = False
+                        try:
+                            msg = progress_queue.get(timeout=0.1)
+                        except queue.Empty:
+                            pass
+                        else:
+                            apply_progress_msg(msg)
+                            updated = True
+
+                            drained = 0
+                            while drained < max_msgs_per_cycle:
+                                try:
+                                    msg = progress_queue.get_nowait()
+                                except queue.Empty:
+                                    break
+                                apply_progress_msg(msg)
+                                drained += 1
+
+                        now = time.perf_counter()
+                        if updated or (now - last_redraw) >= 1.0:
+                            redraw_worker_lines()
+                            last_redraw = now
+
+                    while True:
+                        try:
+                            msg = progress_queue.get_nowait()
+                        except queue.Empty:
+                            break
+
+                        apply_progress_msg(msg)
+
+                    redraw_worker_lines()
+                    failures = int(np.sum(result.get()))
 
     ler = failures / shots
     print(f"\t\tNumber of failed shots: {failures} out of {shots}")
