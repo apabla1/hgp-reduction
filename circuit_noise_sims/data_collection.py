@@ -122,7 +122,7 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
         else:
             progress_t0 = time.perf_counter()
             worker_state: Dict[int, Dict[str, float]] = {
-                worker_id: {"shot_num": 0.0, "shots": float(s)}
+                worker_id: {"shot_num": 0.0, "shots": float(s), "done_elapsed": float("nan")}
                 for worker_id, s in worker_specs
             }
 
@@ -134,11 +134,12 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
                     state = worker_state[worker_id]
                     shot_num = int(state["shot_num"])
                     total = int(state["shots"])
-                    rate = (shot_num / elapsed) if elapsed > 0 else 0.0
+                    worker_elapsed = state["done_elapsed"] if np.isfinite(state["done_elapsed"]) else elapsed
+                    rate = (shot_num / worker_elapsed) if worker_elapsed > 0 else 0.0
                     eta = ((total - shot_num) / rate) if rate > 0 else float("inf")
                     lines.append(
                         f"\t\tWorker {worker_id}: Shot {shot_num} out of {total} "
-                        f"(elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})"
+                        f"(elapsed {_fmt_secs(worker_elapsed)}, eta {_fmt_secs(eta)})"
                     )
                 return lines
 
@@ -159,7 +160,14 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
                 worker_state[worker_id] = {
                     "shot_num": float(msg["shot_num"]),
                     "shots": float(msg["shots"]),
+                    "done_elapsed": worker_state[worker_id]["done_elapsed"],
                 }
+
+                if (
+                    worker_state[worker_id]["shot_num"] >= worker_state[worker_id]["shots"]
+                    and not np.isfinite(worker_state[worker_id]["done_elapsed"])
+                ):
+                    worker_state[worker_id]["done_elapsed"] = max(0.0, time.perf_counter() - progress_t0)
 
             redraw_worker_lines(initial=True)
 
