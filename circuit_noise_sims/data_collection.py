@@ -56,8 +56,10 @@ def parse_args() -> argparse.Namespace:
                         help="Number of parallel worker processes for sampling. (DEFAULT: 4)")
     parser.add_argument("--p-values", nargs="+", default=None,
                         help=(
-                            "Specific p values to simulate. Accepts space-separated and/or comma-separated values, "
-                            "for example: --p-values 5e-4 1e-3 2e-3 or --p-values 5e-4,1e-3,2e-3 "
+                            "P-value selection mode. Use comma-separated explicit values "
+                            "(for example: --p-values 5e-4,1e-3,2e-3) or a space-separated range "
+                            "triplet <low> <high> <step> "
+                            "(for example: --p-values 5e-4 1e-2 5e-4) "
                             "(DEFAULT: 0.0005 to 0.01 in steps of 0.0005)"
                         ))
 

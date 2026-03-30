@@ -12,8 +12,8 @@ python3 data_collection.py --shots 5000 --decoder Relay
 # BP-OSD decoder with custom order
 python3 data_collection.py --shots 5000 --decoder OSD --bp-max-iter 100 --bp-max-order 10
 
-# Explicit p values (space-separated)
-python3 data_collection.py --shots 5000 --decoder Relay --p-values 5e-4 1e-3 2e-3
+# p-value range: lower upper step (space-separated)
+python3 data_collection.py --shots 5000 --decoder Relay --p-values 5e-4 1e-2 5e-4
 
 # Explicit p values (comma-separated)
 python3 data_collection.py --shots 5000 --decoder Relay --p-values 5e-4,1e-3,2e-3

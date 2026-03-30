@@ -185,19 +185,48 @@ def parse_p_values(raw_values: Optional[Iterable[str]]) -> List[float]:
     if raw_values is None:
         return list(DEFAULT_PS_SWEEP)
 
-    parsed: List[float] = []
-    for token in raw_values:
-        for piece in str(token).split(","):
-            piece = piece.strip()
-            if not piece:
-                continue
-            parsed.append(float(piece))
-
-    if not parsed:
+    tokens = [str(token).strip() for token in raw_values if str(token).strip()]
+    if not tokens:
         raise ValueError("No valid p values were provided.")
 
-    unique_sorted = sorted(set(parsed))
-    return unique_sorted
+    # Commas indicate explicit values, e.g. --p-values 5e-3,5.5e-3,6e-3
+    if any("," in token for token in tokens):
+        parsed: List[float] = []
+        for token in tokens:
+            for piece in token.split(","):
+                piece = piece.strip()
+                if not piece:
+                    continue
+                parsed.append(float(piece))
+
+        if not parsed:
+            raise ValueError("No valid comma-separated p values were provided.")
+
+        return sorted(set(parsed))
+
+    # Space-separated values are interpreted as a range triplet: low high step.
+    if len(tokens) != 3:
+        raise ValueError(
+            "When --p-values is space-separated, provide exactly 3 values: "
+            "<low> <high> <step>. For explicit values, use commas."
+        )
+
+    low, high, step = (float(token) for token in tokens)
+    if step <= 0:
+        raise ValueError("Range step for --p-values must be positive.")
+    if high < low:
+        raise ValueError("Range upper bound must be >= lower bound for --p-values.")
+
+    span = high - low
+    tol = max(1e-15, abs(step) * 1e-12)
+    n_steps = int(np.floor((span + tol) / step))
+    values = [round(low + i * step, 15) for i in range(n_steps + 1)]
+
+    # Ensure the exact upper bound is included even with floating-point drift.
+    if not np.isclose(values[-1], high, atol=tol, rtol=0.0):
+        values.append(round(high, 15))
+
+    return sorted(set(float(v) for v in values))
 
 
 def select_rows_in_range(data: np.ndarray, p_min: Optional[float], p_max: Optional[float]) -> np.ndarray:
