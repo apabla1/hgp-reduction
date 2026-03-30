@@ -24,15 +24,15 @@ def get_check_coloring(H):
         coloring.append([key for key, value in color_dict.items() if value == i])
     return coloring
 
-def get_random_code(n, d_v, d_c, min_dist, max_coloring):
+def get_random_code(n=20, d_v=3, d_c=5, min_dist=6, max_coloring=5):
     """    
     Return a random HGP code.
     
-    :param n: #bits
-    :param d_v: how many checks each bit participates in
-    :param d_c: how many bits each check involves
-    :param min_dist: minimum distance of classical code 
-    :param max_coloring: maximum number of color groups in classical code
+    :param n: #bits (default: 20)
+    :param d_v: how many checks each bit participates in (default: 3)
+    :param d_c: how many bits each check involves (default: 5)
+    :param min_dist: minimum distance of classical code (default: 6)
+    :param max_coloring: maximum number of color groups in classical code (default: 5)
     """
 
 ### Create random classical code

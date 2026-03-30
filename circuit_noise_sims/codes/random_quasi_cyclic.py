@@ -28,7 +28,7 @@ def get_random_qc_code(
     lift=6,
     min_dist=11,
     max_coloring=3,
-    tries=200,
+    tries=10000,
     seed=None,
 ):
     rng = np.random.default_rng(seed)
