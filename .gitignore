@@ -1,3 +1,5 @@
+.venv
+.vscode
 dump/
 __pycache__/
 *.pyc
