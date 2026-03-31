@@ -21,6 +21,7 @@ from functions.sim_common import (
     decoder_config_tag,
     get_available_codes,
     get_data_path,
+    load_code,
     load_data_table,
     parse_decoder_params,
     select_rows_in_range,
@@ -138,6 +139,22 @@ def _plot_one_variant(ax: Axes, data: np.ndarray, label: str) -> None:
     ax.errorbar(p_vals, lers, yerr=stds, fmt=".-", capsize=3, alpha=1, label=label)
 
 
+def _format_plot_title(code_name: str) -> str:
+    classical_name = code_name.replace("_", " ").title()
+    try:
+        code, _ = load_code(code_name)
+    except Exception:
+        return classical_name
+
+    n_val = getattr(code, "N", None)
+    k_val = getattr(code, "K", None)
+    d_val = getattr(code, "D", None)
+    if n_val is None or k_val is None or d_val is None:
+        return classical_name
+
+    return f"{classical_name} (HGP [[{int(n_val)}, {int(k_val)}, {int(d_val)}]])"
+
+
 def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List[str],
                  decoder: str, dec_params: List[Any], p_min: Optional[float], p_max: Optional[float]) -> None:
     import math
@@ -176,7 +193,7 @@ def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List
         _plot_one_variant(ax, results[code_name]["reduced_split"], "reduced, split SE")
         _plot_one_variant(ax, results[code_name]["reduced_random"], "reduced, random SE")
 
-        ax.set_title(code_name.replace("_", " ").title(), fontsize=14)
+        ax.set_title(_format_plot_title(code_name), fontsize=14)
         ax.set_xlabel(r"$p$", fontsize=16)
         ax.set_xscale("linear")
         ax.set_yscale("linear")
