@@ -236,6 +236,13 @@ def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List
 def main() -> None:
     args = parse_args()
     dec_params = parse_decoder_params(args)
+    
+    if args.decoder == "Relay":
+        params_str = f"relay_gamma0={dec_params[0]}, relay_pre_iter={dec_params[1]}, relay_num_sets={dec_params[2]}, relay_max_iter={dec_params[3]}, relay_gamma_dist_interval={dec_params[4]}, relay_stop_nconv={dec_params[5]}"
+    else:  # OSD or LSD
+        params_str = f"bp_max_iter={dec_params[0]}, bp_order={dec_params[1]}"
+    
+    print(f"Plotting data with {args.decoder} decoder with parameters {params_str}")
 
     available_codes = get_available_codes()
     if args.codes:
@@ -243,6 +250,8 @@ def main() -> None:
         validate_selected_codes(selected_codes)
     else:
         selected_codes = sorted(available_codes.keys())
+    
+    print(f"Plotting codes {', '.join(selected_codes)}")
 
     available_p_values = _collect_available_p_values(selected_codes, args.decoder, dec_params)
     if (args.p_min is None or args.p_max is None) and available_p_values.size == 0:
