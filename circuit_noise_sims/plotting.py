@@ -137,7 +137,7 @@ def _plot_one_variant(ax: Axes, data: np.ndarray, label: str) -> None:
     lers = np.divide(failures, shots, where=shots > 0, out=np.zeros_like(failures, dtype=float))
     stds = _safe_binom_std(lers, shots)
 
-    y_floor = 1e-4
+    y_floor = np.where(shots > 0, 0.5 / shots, np.finfo(float).tiny)
     lers_plot = np.maximum(lers, y_floor)
     lower_err = np.minimum(stds, np.maximum(lers_plot - y_floor, 0.0))
     upper_err = stds
