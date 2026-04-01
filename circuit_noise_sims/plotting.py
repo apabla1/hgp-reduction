@@ -9,6 +9,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import rcParams
 from matplotlib.axes import Axes
+from matplotlib.ticker import FuncFormatter
 
 if os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland" and "QT_QPA_PLATFORM" not in os.environ:
     os.environ["QT_QPA_PLATFORM"] = "xcb"
@@ -136,7 +137,12 @@ def _plot_one_variant(ax: Axes, data: np.ndarray, label: str) -> None:
     lers = np.divide(failures, shots, where=shots > 0, out=np.zeros_like(failures, dtype=float))
     stds = _safe_binom_std(lers, shots)
 
-    ax.errorbar(p_vals, lers, yerr=stds, fmt=".-", capsize=3, alpha=1, label=label)
+    y_floor = 1e-4
+    lers_plot = np.maximum(lers, y_floor)
+    lower_err = np.minimum(stds, np.maximum(lers_plot - y_floor, 0.0))
+    upper_err = stds
+
+    ax.errorbar(p_vals, lers_plot, yerr=np.vstack((lower_err, upper_err)), fmt=".-", capsize=3, alpha=1, label=label)
 
 
 def _format_plot_title(code_name: str) -> str:
@@ -158,6 +164,11 @@ def _format_plot_title(code_name: str) -> str:
 def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List[str],
                  decoder: str, dec_params: List[Any], p_min: Optional[float], p_max: Optional[float]) -> None:
     import math
+
+    def _log_number_formatter(value: float, _pos: int) -> str:
+        if value <= 0 or not np.isfinite(value):
+            return ""
+        return f"log({value:.3g})"
 
     if len(selected_codes) == 0:
         print("No codes selected for plotting.")
@@ -194,9 +205,11 @@ def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List
         _plot_one_variant(ax, results[code_name]["reduced_random"], "reduced, random SE")
 
         ax.set_title(_format_plot_title(code_name), fontsize=14)
-        ax.set_xlabel(r"$p$", fontsize=16)
-        ax.set_xscale("linear")
-        ax.set_yscale("linear")
+        ax.set_xlabel(r"$\log(p)$", fontsize=16)
+        ax.set_xscale("log")
+        ax.set_yscale("log")
+        ax.xaxis.set_major_formatter(FuncFormatter(_log_number_formatter))
+        ax.yaxis.set_major_formatter(FuncFormatter(_log_number_formatter))
         ax.grid(True, which="both", axis="both")
 
     if global_p_values.size > 0:
@@ -211,14 +224,24 @@ def plot_results(results: Dict[str, Dict[str, np.ndarray]], selected_codes: List
 
         for ax in axes[:num_codes]:
             ax.set_xlim(x_left, x_right)
-            ax.set_xticks(global_p_values)
-            ax.set_xticklabels([f"{p:.4f}" for p in global_p_values], rotation=45, ha="right")
-            ax.tick_params(axis="x", which="both", labelbottom=True)
+            num_tick_labels = 6
+            if global_p_values.size > num_tick_labels:
+                tick_indices = np.unique(np.linspace(0, global_p_values.size - 1, num_tick_labels, dtype=int))
+                shown_ticks = global_p_values[tick_indices]
+            else:
+                shown_ticks = global_p_values
+            ax.set_xticks(shown_ticks)
+            ax.set_xticklabels([f"log({p:.3g})" for p in shown_ticks], rotation=30, ha="right", fontsize=8)
+            ax.tick_params(axis="x", which="both", labelbottom=True, labelsize=8)
 
     for idx in range(num_codes, len(axes)):
         axes[idx].axis("off")
 
-    axes[0].set_ylabel(r"Logical failure probability", fontsize=16)
+    for row_idx in range(num_rows):
+        left_col_idx = row_idx * num_cols
+        if left_col_idx < num_codes:
+            axes[left_col_idx].set_ylabel(r"$\log(\mathrm{BLER})$", fontsize=16)
+
     axes[0].legend(fontsize=12, loc="lower right")
 
     plt.tight_layout()
