@@ -1,0 +1,141 @@
+import numpy as np
+import time
+from typing import Any, Optional
+from scipy.sparse import csr_matrix
+from ldpc.bposd_decoder import BpOsdDecoder
+from ldpc.bplsd_decoder import BpLsdDecoder
+import relay_bp
+
+# For printing time
+def _fmt_secs(sec: float) -> str:
+    sec = int(sec)
+    m, s = divmod(sec, 60)
+    h, m = divmod(m, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+def num_failures_BP(
+    code,
+    dec,
+    circ,
+    params,
+    p2,
+    shots,
+    rounds,
+    verbose=True,
+    sampler_seed=None,
+    worker_id=None,
+    progress_queue: Optional[Any] = None,
+):
+    """
+    code: css code object
+    dec: decoder type ('OSD' or 'LSD' or 'Relay')
+    circ: stim circuit for syndrome extraction
+    params: decoder parameters
+        OSD/LSD -> [bp_max_iter, bp_order]
+        Relay   -> [gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv]
+    p2: two-qubit gate error probability
+    p_data: prior per data time-slice variable
+    p_meas: prior per measurement variable
+    shots: number of shots to sample
+    rounds: number of rounds in the circuit
+    """
+    
+    if dec != 'OSD' and dec != 'LSD' and dec != 'Relay':
+        raise ValueError('Invalid decoder type')
+    if dec in ('OSD', 'LSD') and len(params) != 2:
+        raise ValueError('Invalid decoder parameters for OSD/LSD; expected 2 values: [bp_max_iter, bp_order]')
+    if dec == 'Relay' and len(params) != 6:
+        raise ValueError('Invalid decoder parameters for Relay; expected 6 values: [gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv]')
+    
+    H = code.hz.toarray()
+    m, n = H.shape
+    
+### Construct spacetime decoding graph
+    H_dec = np.kron(np.eye(rounds+1,dtype=int), H)
+    H_dec = np.concatenate((H_dec,np.zeros([m*(rounds+1),m*rounds],dtype=int)), axis=1)
+    for j in range(m*rounds):
+        H_dec[j,n*(rounds+1)+j] = 1
+        H_dec[m+j,n*(rounds+1)+j] = 1
+    H_dec = csr_matrix(H_dec)
+
+    qubit_w = np.asarray(H.sum(axis=0)).ravel().astype(float)
+    check_w = np.asarray(H.sum(axis=1)).ravel().astype(float)
+    
+    def eff_p(k, p):
+        return 1.0 - np.power(1.0 - p, k)
+
+    p_data = eff_p(qubit_w, p2)
+    p_meas = eff_p(check_w, p2)
+
+    error_channel = np.concatenate([
+        np.tile(p_data, rounds + 1),
+        np.tile(p_meas, rounds),
+    ]).astype(float)
+
+    error_channel = np.clip(error_channel, 1e-15, 1.0 - 1e-15)
+    # ldpc OSD/LSD bindings expect a Python list, Relay expects a NumPy array.
+    error_channel_list = error_channel.tolist()
+    
+### Decoder
+    if dec == 'OSD':
+        decoder = BpOsdDecoder(H_dec, error_channel=error_channel_list, max_iter=params[0], bp_method='ms', osd_method='osd_cs', osd_order=params[1], schedule='parallel')
+    elif dec == 'LSD':
+        decoder = BpLsdDecoder(H_dec, error_channel=error_channel_list, max_iter=params[0], bp_method='ms', lsd_method='lsd_cs', lsd_order=params[1], schedule='serial')
+    elif dec == 'Relay':
+        gamma0, pre_iter, num_sets, max_iter, gamma_dist_interval, stop_nconv = params
+        decoder = relay_bp.RelayDecoderF32(H_dec, error_priors=error_channel, gamma0=gamma0, pre_iter=pre_iter,
+                                        num_sets=num_sets, set_max_iter=max_iter,
+                                        gamma_dist_interval=gamma_dist_interval, stop_nconv=stop_nconv)
+
+### Sampling
+    # Use an explicit seed when provided so parallel workers do not duplicate RNG streams.
+    sampler = circ.compile_sampler(seed=sampler_seed) if sampler_seed is not None else circ.compile_sampler()
+    num_failures = 0
+    shot_num = 0
+
+    # Stim samples a minimum of 256 shots at a time
+    # batch_sizes = [256, 256, ..., shots // 256, shots % 256]
+    batch_sizes = [256] * (shots // 256)
+    remainder = shots % 256
+    if remainder:
+        batch_sizes.append(remainder)
+       
+    # Timer    
+    t0 = time.perf_counter()
+    
+    for num_shots in batch_sizes:
+        output = sampler.sample(shots=num_shots)
+        for i in range(num_shots):
+            shot_num += 1
+            syndromes = np.zeros([rounds+1,m], dtype=int) 
+            meas = output[i, :-n]  # all ancilla measurement bits (Z then X each round)
+            per_round = meas.size // rounds  # should be mz + mx
+            meas = meas.reshape(rounds, per_round)
+            z_meas = meas[:, :m]
+            syndromes[:rounds] = z_meas
+            syndromes[-1] = H @ output[i,-n:] % 2
+            syndromes[1:] = syndromes[1:] ^ syndromes[:-1]   # Difference syndrome
+            syndromes = np.array(syndromes, dtype=np.uint8)
+            decoder_output = np.reshape(decoder.decode(np.ravel(syndromes))[:n*(rounds+1)], [rounds+1,n])
+            correction = decoder_output.sum(axis=0) % 2
+            final_state = output[i,-n:] ^ correction
+            if (code.lz@final_state%2).any():
+                num_failures += 1
+
+            if progress_queue is not None and worker_id is not None:
+                progress_queue.put({
+                    "worker_id": int(worker_id),
+                    "shot_num": int(shot_num),
+                    "shots": int(shots),
+                    "num_failures": int(num_failures),
+                })
+            elif verbose and (shot_num % max(1, shots // 5) == 0 or shot_num == shots):
+                elapsed = time.perf_counter() - t0
+                rate = shot_num / elapsed
+                eta = (shots - shot_num) / rate if rate > 0 else float("inf")
+                if worker_id is None:
+                    print(f"\tShot {shot_num} of {shots}; {num_failures} failed so far (elapsed {_fmt_secs(elapsed)}, eta {_fmt_secs(eta)})")
+                else:
+                    print(f"\tWorker #{worker_id}: Shot {shot_num} out of {shots} (eta {_fmt_secs(eta)})")
+                
+    return num_failures
