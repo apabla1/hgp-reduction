@@ -26,7 +26,7 @@ def get_random_qc_code(
     cols=4,
     row_weight=3,
     lift=6,
-    min_dist=11,
+    min_dist=10,
     max_coloring=3,
     tries=10000,
     seed=None,
