@@ -249,7 +249,7 @@ def run_one_probability(
     print(f"\n\t*******Noise parameters: p1={p/10:.3e}, p2={p:.3e}, p_spam={p:.3e}*******")
 
     print("\tGenerating *unreduced* CNOT syndrome circuit with random syndrome extraction...")
-    unreduced_random_circ = generate_full_circuit(unreduced_code, rounds, p / 10, p, p, seed)
+    unreduced_random_circ = generate_full_circuit(unreduced_code, rounds, (p / 10, p, p), seed)
     unreduced_failures = sample_hgp_circuit_noise(
         unreduced_code,
         unreduced_random_circ,
@@ -262,7 +262,7 @@ def run_one_probability(
     )
 
     print("\tGenerating *reduced* CNOT syndrome circuit with random syndrome extraction...")
-    reduced_random_circ = generate_full_circuit(reduced_code, rounds, p / 10, p, p, seed)
+    reduced_random_circ = generate_full_circuit(reduced_code, rounds, (p / 10, p, p), seed)
     reduced_random_failures = sample_hgp_circuit_noise(
         reduced_code,
         reduced_random_circ,
@@ -275,7 +275,7 @@ def run_one_probability(
     )
 
     print("\tGenerating *reduced* CNOT syndrome circuit with split syndrome extraction...")
-    reduced_split_circ = generate_full_circuit_split(hx1, hx2, hz1, hz2, rounds, p / 10, p, p, seed)
+    reduced_split_circ = generate_full_circuit_split(hx1, hx2, hz1, hz2, rounds, (p / 10, p, p), seed)
     reduced_split_failures = sample_hgp_circuit_noise(
         reduced_code,
         reduced_split_circ,

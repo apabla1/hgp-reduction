@@ -57,9 +57,7 @@ def generate_full_circuit(code, rounds, noise_pars, seed):
 
     :param code: code to generate circuit for
     :param rounds: rounds of measurement
-    :param p1: single-qubit depolarizing probability
-    :param p2: two-qubit depolarizing probability
-    :param p_spam: syndrome qubit depolarizing probability
+    :param noise_pars: tuple of (p1, p2, p_spam)
     :param seed: seed forwarded to generate_synd_circuit
     """
     p1, p2, p_spam = noise_pars
