@@ -42,9 +42,8 @@ def get_check_coloring(H):
 
 
 def get_reduced_code(code, H):
-    """
-    Return a reduced HGP code together with a three-way split of each reduced
-    parity-check matrix implementing Algorithm 2 of the updated paper.
+    """  
+    Return a reduced HGP code given a symmetric HGP code made from two of the same parity-check matrix.
 
     The returned matrices satisfy
         Hxnew = Hxnew1 + Hxnew2 + Hxnew3,
@@ -58,7 +57,7 @@ def get_reduced_code(code, H):
         combined checks.
       - Hxnew3 contains the second bit-type column of each combined check.
 
-    For Z checks, the analogous row-based partition is used.
+    For Z checks, the analogous row-based partition is used. This enforces the split syndrome extraction schedule.
 
     :param code: HGP code
     :param H: the PCM used to create `code`

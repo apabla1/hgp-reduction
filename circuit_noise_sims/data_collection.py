@@ -318,7 +318,7 @@ def main() -> None:
             print("\tGenerating HGP code...")
             unreduced_code, h = load_code(code_name)
             print("\tGenerating reduced HGP...")
-            hx1, hx2, hz1, hz2, reduced_code, _, _, d = get_reduced_code(unreduced_code, h)
+            hx1, hx2, _, hz1, hz2, _, reduced_code, _, _, d = get_reduced_code(unreduced_code, h)
 
             assert hx1.shape[1] == hx2.shape[1] == hz2.shape[1] == hz1.shape[1]
 
