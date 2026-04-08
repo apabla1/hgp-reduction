@@ -243,8 +243,10 @@ def run_one_probability(
     reduced_code: Any,
     hx1: Any,
     hx2: Any,
+    hx3: Any,
     hz1: Any,
     hz2: Any,
+    hz3: Any,
 ) -> Dict[str, int]:
     print(f"\n\t*******Noise parameters: p1={p/10:.3e}, p2={p:.3e}, p_spam={p:.3e}*******")
 
@@ -275,7 +277,7 @@ def run_one_probability(
     )
 
     print("\tGenerating *reduced* CNOT syndrome circuit with split syndrome extraction...")
-    reduced_split_circ = generate_full_circuit_split(hx1, hx2, hz1, hz2, rounds, (p / 10, p, p), seed)
+    reduced_split_circ = generate_full_circuit_split(hx1, hx2, hx3, hz1, hz2, hz3, rounds, (p / 10, p, p), seed)
     reduced_split_failures = sample_hgp_circuit_noise(
         reduced_code,
         reduced_split_circ,
@@ -318,9 +320,9 @@ def main() -> None:
             print("\tGenerating HGP code...")
             unreduced_code, h = load_code(code_name)
             print("\tGenerating reduced HGP...")
-            hx1, hx2, _, hz1, hz2, _, reduced_code, _, _, d = get_reduced_code(unreduced_code, h)
+            hx1, hx2, hx3, hz1, hz2, hz3, reduced_code, _, _, d = get_reduced_code(unreduced_code, h)
 
-            assert hx1.shape[1] == hx2.shape[1] == hz2.shape[1] == hz1.shape[1]
+            assert hx1.shape[1] == hx2.shape[1] == hx3.shape[1] == hz1.shape[1] == hz2.shape[1] == hz3.shape[1]
 
             print("\t--Column and row weights ; format: (rmin, rmax, rmean, cmin, cmax, cmean)--")
             print("\t  unreduced hx:", weight_stats(unreduced_code.hx))
@@ -355,8 +357,10 @@ def main() -> None:
                     reduced_code=reduced_code,
                     hx1=hx1,
                     hx2=hx2,
+                    hx3=hx3,
                     hz1=hz1,
                     hz2=hz2,
+                    hz3=hz3,        
                 )
 
                 for variant in VARIANTS:
