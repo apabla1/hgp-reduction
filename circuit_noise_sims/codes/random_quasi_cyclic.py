@@ -40,7 +40,7 @@ def get_random_qc_code(
             B[row][int(pos)] = 1
 
     H = None
-    for _ in range(tries):
+    for a in range(tries):
         M = rng.integers(1, lift, size=(rows, cols))
         A = [r.copy() for r in B]
         for i in range(rows):
@@ -50,8 +50,10 @@ def get_random_qc_code(
 
         candidate_H = pt.array(A).to_binary(lift_parameter=lift).astype(int)
         n, k, d = compute_code_parameters(candidate_H)
+        #print(f"try {a} d = {d}")
         if d >= min_dist:
             coloring = get_check_coloring(candidate_H)
+            #print(f"try {a} coloring = {len(coloring)}")
             if len(coloring) <= max_coloring:
                 H = candidate_H
                 break
