@@ -322,7 +322,7 @@ def main() -> None:
 
             assert hx1.shape[1] == hx2.shape[1] == hz2.shape[1] == hz1.shape[1]
 
-            print("\t--Format: (rmin, rmax, rmean, cmin, cmax, cmean)--")
+            print("\t--Column and row weights ; format: (rmin, rmax, rmean, cmin, cmax, cmean)--")
             print("\t  unreduced hx:", weight_stats(unreduced_code.hx))
             print("\t  unreduced hz:", weight_stats(unreduced_code.hz))
             print("\t  reduced hx:  ", weight_stats(reduced_code.hx))
