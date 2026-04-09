@@ -57,9 +57,7 @@ def generate_full_circuit(code, rounds, noise_pars, seed):
 
     :param code: code to generate circuit for
     :param rounds: rounds of measurement
-    :param p1: single-qubit depolarizing probability
-    :param p2: two-qubit depolarizing probability
-    :param p_spam: syndrome qubit depolarizing probability
+    :param noise_pars: tuple of (p1, p2, p_spam)
     :param seed: seed forwarded to generate_synd_circuit
     """
     p1, p2, p_spam = noise_pars
@@ -98,8 +96,7 @@ def generate_full_circuit(code, rounds, noise_pars, seed):
 
 def generate_full_circuit_split(Hx1, Hx2, Hx3, Hz1, Hz2, Hz3, rounds, noise_pars, seed):
     """
-    Order-enforced syndrome extraction implementing the three-way split of
-    Algorithm 2 in the updated paper.
+    Order-enforced syndrome extraction implementing a three-way split
 
       repeat `rounds` times {
         (1) project Z syndromes for Hz1
@@ -118,9 +115,14 @@ def generate_full_circuit_split(Hx1, Hx2, Hx3, Hz1, Hz2, Hz3, rounds, noise_pars
       - part 2: the residual check-type support of combined checks
       - part 3: the second bit-type row/column of each combined check
 
-    :param p1: single-qubit depolarizing probability
-    :param p2: two-qubit depolarizing probability
-    :param p_spam: syndrome qubit depolarizing probability
+    :param Hx1: part 1 of Hx
+    :param Hx2: part 2 of Hx
+    :param Hx3: part 3 of Hx
+    :param Hz1: part 1 of Hz
+    :param Hz2: part 2 of Hz
+    :param Hz3: part 3 of Hz
+    :param rounds: rounds of measurement
+    :param noise_pars: tuple of (p1, p2, p_spam)
     :param seed: seed forwarded to generate_synd_circuit
     """
     p1, p2, p_spam = noise_pars
