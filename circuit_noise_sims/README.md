@@ -1,9 +1,32 @@
-Simulation and plotting are now split into two scripts:
+Simulation and plotting are split into two scripts:
 
 - `data_collection.py`: runs noisy simulations and appends to saved data.
 - `plotting.py`: loads saved data and generates plots.
 
-## Data collection examples
+---
+## Data collection (`data_collection.py`)
+
+Common arguments:
+- `--shots`: number of circuit samples to decode.
+- `--decoder`: `OSD`, `LSD`, or `Relay`.
+- `--codes`: one or more codes to simulate.
+- `--list-codes`: print the available codes (see below) and exit.
+- `--processes`: number of worker processes.
+- `--p-values`: explicit values separated by commas or a range with "low high step" format.
+- `--bp-max-iter`, `--bp-max-order`: BP/OSD/LSD settings.
+- `--relay-gamma0`, `--relay-pre-iter`, `--relay-num-sets`, `--relay-max-iter`, `--relay-gamma-dist-interval`, `--relay-stop-nconv`: Relay-specific settings.
+
+Available codes:
+- `heawood_cycle`
+- `K33_cycle`
+- `petersen_cycle`
+- `quasi_cyclic_codes`
+- `random_codes`
+- `random_quasi_cyclic`
+- `repetition_code`
+- `tutte_coxeter_cycle`
+
+### Examples
 
 ```bash
 # Relay-BP decoder, default p sweep (0.5e-3 to 1.0e-2 in 0.5e-3 steps)
@@ -19,7 +42,28 @@ python3 data_collection.py --shots 5000 --decoder Relay --p-values 5e-4 1e-2 5e-
 python3 data_collection.py --shots 5000 --decoder Relay --p-values 5e-4,1e-3,2e-3
 ```
 
-## Plotting examples
+---
+## Plotting (`plotting.py`)
+
+Common arguments:
+- `--decoder`: `OSD`, `LSD`, or `Relay`.
+- `--codes`: one or more codes to plot.
+- `--list-codes`: print the available codes (see below) and exit.
+- `--p-min`, `--p-max`: p-range to display.
+- `--bp-max-iter`, `--bp-max-order`: BP/OSD/LSD settings.
+- `--relay-gamma0`, `--relay-pre-iter`, `--relay-num-sets`, `--relay-max-iter`, `--relay-gamma-dist-interval`, `--relay-stop-nconv`: Relay-specific settings.
+
+Available codes:
+- `heawood_cycle`
+- `K33_cycle`
+- `petersen_cycle`
+- `quasi_cyclic_codes`
+- `random_codes`
+- `random_quasi_cyclic`
+- `repetition_code`
+- `tutte_coxeter_cycle`
+
+### Examples
 
 ```bash
 # Plot all available p points for Relay default parameters
@@ -31,8 +75,6 @@ python3 plotting.py --decoder Relay --p-min 1e-3 --p-max 6e-3
 # Plot selected codes for BP-OSD custom settings
 python3 plotting.py --decoder OSD --bp-max-iter 100 --bp-max-order 10 --codes heawood_cycle K33_cycle
 
-# Plot without LaTeX text rendering (recommended if TeX errors occur)
-python3 plotting.py --decoder Relay --codes heawood_cycle K33_cycle --p-min 5e-4 --p-max 1e-2 --no-tex
 ```
 
 ## Data layout
@@ -57,12 +99,12 @@ When `data_collection.py` is re-run with the same decoder configuration, it appe
 
 Install Python dependencies:
 
-python3 -m pip install -r requirements/python.txt
+`python3 -m pip install -r requirements/python.txt`
 
-Install Python dependencies and optional LaTeX system packages (Ubuntu/Debian):
+Install Python dependencies and optional LaTeX system packages:
 
-bash requirements/install_requirements.sh --with-latex
+`bash requirements/install_requirements.sh --with-latex`
 
 If you only want Python dependencies:
 
-bash requirements/install_requirements.sh
+`bash requirements/install_requirements.sh`
