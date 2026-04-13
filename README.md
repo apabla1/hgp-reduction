@@ -1,27 +1,41 @@
 # Hypergraph Product (HGP) Physical Qubit Reduction ()
 
-This repository contains 
+This repository contains the code for reducing HGP code circuits and testing the reduction with noisy simulations.
 
 ### Directory structure:
 ```python
- hgp-reduction
-    ├── Figs
-    │   ├── ...
-    ├── README.md
-    ├── circuit_noise_sims
-    │   ├── README.md
-    │   ├── functions
-    │   │   ├── BP_decoding.py
-    │   │   ├── H_to_CNOT_circuit.py
-    │   │   ├── circuit_utils.py
-    │   │   ├── edge_coloring.py
-    │   │   ├── matrix_funcs.py
-    │   │   └── reduction_funcs.py
-    │   └── noise_sims.py
-    └── transform_random_codes.ipynb
+hgp-reduction
+├── Figs                         # generated figures and saved plots
+│   ├── ...
+├── README.md                    # this file
+├── circuit_noise_sims           # circuit-level noise simulations (Section 5)
+│   ├── README.md
+│   ├── codes                    # codes that we sample noise on
+│   │   ├── K33_cycle.py
+│   │   ├── __pycache__
+│   │   ├── heawood_cycle.py
+│   │   ├── petersen_cycle.py
+│   │   ├── quasi_cyclic_codes.py
+│   │   ├── random_codes.py 
+│   │   ├── random_quasi_cyclic.py
+│   │   ├── repetition_code.py
+│   │   └── tutte_coxeter_cycle.py
+│   ├── data                      # saved simulation data
+│   │   └── ...
+│   ├── data_collection.py        # runs noise simulations and saves data
+│   ├── functions                 # helper functions
+│   │   ├── H_to_CNOT_circuit.py 
+│   │   ├── decoding.py 
+│   │   ├── edge_coloring.py
+│   │   ├── matrix_funcs.py 
+│   │   ├── reduction_funcs.py
+│   │   └── sim_common.py  
+│   ├── plots                     # generated plots
+│   │   └── ...
+│   ├── plotting.py               # loads data and makes plots
+│   └── requirements              # installs requirements
+│       ├── install_requirements.sh
+│       ├── python.txt
+│       └── system-ubuntu.txt
+└── transform_random_codes.ipynb   # reduction walkthrough (Section 3.1)
 ```
----
-
-Main files:
-- `transform_random_codes.ipynb`: Implements the reduction procedure of Section _ and runs it on random classical LDPC codes. Walks through the entire procedure of creating the codes and doing the reduction. Used to obtain the results in Table _.
-- `circuit_noise_sims/noise_sims.py`: Runs noise simulations to test the effectiveness of the reduction. Used to obtain the results in Section _. More details in `noise_funcs/README.md`
