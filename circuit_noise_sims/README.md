@@ -2,15 +2,15 @@
 
 Install Python dependencies:
 
-python3 -m pip install -r requirements/python.txt
+`python3 -m pip install -r requirements/python.txt`
 
 Install Python dependencies and optional LaTeX system packages (Ubuntu/Debian):
 
-bash requirements/install_requirements.sh --with-latex
+`bash requirements/install_requirements.sh --with-latex`
 
 If you only want Python dependencies:
 
-bash requirements/install_requirements.sh
+`bash requirements/install_requirements.sh`
 
 # Simulation and Plotting
 
