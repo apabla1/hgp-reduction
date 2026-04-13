@@ -97,13 +97,13 @@ Data files are now organized by decoder configuration:
 
 ```text
 data/
-	<decoder_config>/
-		unreduced_random/
-			<code_name>.npy
-		reduced_random/
-			<code_name>.npy
-		reduced_split/
-			<code_name>.npy
+└── <decoder_config>/
+	├── unreduced_random/
+	|	└──	<code_name>.npy
+	├──	reduced_random/
+	|	└──	<code_name>.npy
+	└──	reduced_split/
+		└──	<code_name>.npy
 ```
 
 Each file stores rows of `[p, failures, total_shots]`.
