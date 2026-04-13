@@ -1,3 +1,19 @@
+## Requirements
+
+Install Python dependencies:
+
+python3 -m pip install -r requirements/python.txt
+
+Install Python dependencies and optional LaTeX system packages (Ubuntu/Debian):
+
+bash requirements/install_requirements.sh --with-latex
+
+If you only want Python dependencies:
+
+bash requirements/install_requirements.sh
+
+# Simulation and Plotting
+
 Simulation and plotting are now split into two scripts:
 
 - `data_collection.py`: runs noisy simulations and appends to saved data.
@@ -52,17 +68,3 @@ data/
 
 Each file stores rows of `[p, failures, total_shots]`.
 When `data_collection.py` is re-run with the same decoder configuration, it appends shots to matching `p` rows by default.
-
-## Requirements
-
-Install Python dependencies:
-
-python3 -m pip install -r requirements/python.txt
-
-Install Python dependencies and optional LaTeX system packages (Ubuntu/Debian):
-
-bash requirements/install_requirements.sh --with-latex
-
-If you only want Python dependencies:
-
-bash requirements/install_requirements.sh
