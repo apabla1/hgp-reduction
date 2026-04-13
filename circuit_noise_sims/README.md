@@ -32,16 +32,6 @@ Common arguments:
 - `--bp-max-iter`, `--bp-max-order`: BP/OSD/LSD settings.
 - `--relay-gamma0`, `--relay-pre-iter`, `--relay-num-sets`, `--relay-max-iter`, `--relay-gamma-dist-interval`, `--relay-stop-nconv`: Relay-specific settings.
 
-Available codes:
-- `heawood_cycle`
-- `K33_cycle`
-- `petersen_cycle`
-- `quasi_cyclic_codes`
-- `random_codes`
-- `random_quasi_cyclic`
-- `repetition_code`
-- `tutte_coxeter_cycle`
-
 ### Examples
 
 ```bash
@@ -69,16 +59,6 @@ Common arguments:
 - `--bp-max-iter`, `--bp-max-order`: BP/OSD/LSD settings.
 - `--relay-gamma0`, `--relay-pre-iter`, `--relay-num-sets`, `--relay-max-iter`, `--relay-gamma-dist-interval`, `--relay-stop-nconv`: Relay-specific settings.
 
-Available codes:
-- `heawood_cycle`
-- `K33_cycle`
-- `petersen_cycle`
-- `quasi_cyclic_codes`
-- `random_codes`
-- `random_quasi_cyclic`
-- `repetition_code`
-- `tutte_coxeter_cycle`
-
 ### Examples
 
 ```bash
@@ -92,6 +72,24 @@ python3 plotting.py --decoder Relay --p-min 1e-3 --p-max 6e-3
 python3 plotting.py --decoder OSD --bp-max-iter 100 --bp-max-order 10 --codes heawood_cycle K33_cycle
 
 ```
+
+## Available Codes
+
+| Code name | Classical $[n, k, d]$ | Quantum $\llbracket n, k, d \rrbracket$ |
+|-----------|----------------------|----------------------|
+| `heawood_cycle` | $[21, 8, 6]$ | $\llbracket 637, 65, 6 \rrbracket$ |
+| `K33_cycle` | $[9, 4, 4]$ | $\llbracket 117, 17, 4 \rrbracket$ |
+| `petersen_cycle` | $[15, 6, 5]$ | $\llbracket 325, 37, 5 \rrbracket$ |
+| `tutte_coxeter_cycle` | $[45, 16, 8]$ | $\llbracket 2866, 256, 8 \rrbracket$ |
+| `qc_20_5_9` | $[20, 5, 9]$ | $\llbracket 625, 25, 9 \rrbracket$ |
+| `qc_24_6_10` | $[24, 6, 10]$ | $\llbracket 900, 36, 10 \rrbracket$ |
+| `qc_28_7_11` | $[28, 7, 11]$ | $\llbracket 1225, 49, 11 \rrbracket$ |
+| `qc_20_4_9` | $[20, 4, 9]$ | $\llbracket 656, 16, 9 \rrbracket$ |
+| `rep_code` | $[5, 1, 5]$ | $\llbracket 41, 1, 5 \rrbracket$ |
+| `random_code` | $[20, 8, 6]$ | $\llbracket 544, 64, 6 \rrbracket$ |
+| `random_qc_code` | $[24, 6, 10]$ | $\llbracket 900, 36, 10 \rrbracket$ |
+
+Note that for the random codes (last 2 rows), one can modify the parameters in `./codes/random_codes.py` and `./codes/random_quasi_cyclic.py` respectively to obtain different parameters. 
 
 ## Data layout
 
