@@ -1,4 +1,4 @@
-# Hypergraph Product (HGP) Physical Qubit Reduction ()
+# Hypergraph Product (HGP) Physical Qubit Reduction (2605.11318)
 
 This repository contains the code for reducing HGP code circuits and testing the reduction with noisy simulations.
 
