@@ -1,4 +1,5 @@
 import importlib
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
@@ -7,10 +8,11 @@ import numpy as np
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 CODES_DIR = PROJECT_ROOT / "codes"
-DATA_DIR = PROJECT_ROOT / "data"
-DATA_DIR.mkdir(exist_ok=True)
+DATA_DIR = Path(os.environ.get("HGP_REDUCTION_DATA_DIR", PROJECT_ROOT / "data"))
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
-VARIANTS: Tuple[str, str, str] = (
+VARIANTS: Tuple[str, ...] = (
+    "unreduced_cardinal",
     "unreduced_random",
     "reduced_random",
     "reduced_split",

@@ -1,0 +1,376 @@
+{
+  "circuit_metadata": {
+    "circuit_sha256": "31d6277c4bbd24966dddd1dd640c62e012104a4f406dab6893004069d8e02ad2",
+    "cnot_layer_count": 72,
+    "cnot_layer_pair_counts": [
+      [
+        0,
+        189
+      ],
+      [
+        1,
+        189
+      ],
+      [
+        2,
+        189
+      ],
+      [
+        3,
+        168
+      ],
+      [
+        4,
+        168
+      ],
+      [
+        5,
+        168
+      ],
+      [
+        7,
+        188
+      ],
+      [
+        8,
+        188
+      ],
+      [
+        9,
+        188
+      ],
+      [
+        10,
+        170
+      ],
+      [
+        11,
+        170
+      ],
+      [
+        12,
+        170
+      ],
+      [
+        14,
+        189
+      ],
+      [
+        15,
+        189
+      ],
+      [
+        16,
+        189
+      ],
+      [
+        17,
+        168
+      ],
+      [
+        18,
+        168
+      ],
+      [
+        19,
+        168
+      ],
+      [
+        21,
+        188
+      ],
+      [
+        22,
+        188
+      ],
+      [
+        23,
+        188
+      ],
+      [
+        24,
+        170
+      ],
+      [
+        25,
+        170
+      ],
+      [
+        26,
+        170
+      ],
+      [
+        28,
+        189
+      ],
+      [
+        29,
+        189
+      ],
+      [
+        30,
+        189
+      ],
+      [
+        31,
+        168
+      ],
+      [
+        32,
+        168
+      ],
+      [
+        33,
+        168
+      ],
+      [
+        35,
+        188
+      ],
+      [
+        36,
+        188
+      ],
+      [
+        37,
+        188
+      ],
+      [
+        38,
+        170
+      ],
+      [
+        39,
+        170
+      ],
+      [
+        40,
+        170
+      ],
+      [
+        42,
+        189
+      ],
+      [
+        43,
+        189
+      ],
+      [
+        44,
+        189
+      ],
+      [
+        45,
+        168
+      ],
+      [
+        46,
+        168
+      ],
+      [
+        47,
+        168
+      ],
+      [
+        49,
+        188
+      ],
+      [
+        50,
+        188
+      ],
+      [
+        51,
+        188
+      ],
+      [
+        52,
+        170
+      ],
+      [
+        53,
+        170
+      ],
+      [
+        54,
+        170
+      ],
+      [
+        56,
+        189
+      ],
+      [
+        57,
+        189
+      ],
+      [
+        58,
+        189
+      ],
+      [
+        59,
+        168
+      ],
+      [
+        60,
+        168
+      ],
+      [
+        61,
+        168
+      ],
+      [
+        63,
+        188
+      ],
+      [
+        64,
+        188
+      ],
+      [
+        65,
+        188
+      ],
+      [
+        66,
+        170
+      ],
+      [
+        67,
+        170
+      ],
+      [
+        68,
+        170
+      ],
+      [
+        70,
+        189
+      ],
+      [
+        71,
+        189
+      ],
+      [
+        72,
+        189
+      ],
+      [
+        73,
+        168
+      ],
+      [
+        74,
+        168
+      ],
+      [
+        75,
+        168
+      ],
+      [
+        77,
+        188
+      ],
+      [
+        78,
+        188
+      ],
+      [
+        79,
+        188
+      ],
+      [
+        80,
+        170
+      ],
+      [
+        81,
+        170
+      ],
+      [
+        82,
+        170
+      ]
+    ],
+    "cnot_order_sha256": "e25e382bc7977a30a7c023aa739656ae75cdc6e3746931a6ff9f5732ce247638",
+    "cnot_pair_count": 12870,
+    "num_detectors": 1323,
+    "num_measurements": 2703,
+    "num_observables": 64,
+    "num_qubits": 818
+  },
+  "code_metadata": {
+    "code_k": 64,
+    "code_n": 441,
+    "rounds": 6,
+    "schedule_seed": 1
+  },
+  "completed_utc": "2026-08-31T18:33:12.026901Z",
+  "failures": 27,
+  "phenomenological_model": {
+    "all_projections_minimum_weight_certified": true,
+    "all_spatial_solutions_minimum_weight_certified": true,
+    "exact_dem_rejection": null,
+    "graph_projection_solver": "exact-global-weight-0-to-4-with-certified-weight-5-upper-bound",
+    "graph_sha256": "332e8a4777507edaa8a3aa6528f1b7fc1b09739c8a83071185a4dc5043865478",
+    "max_initial_projection_weight": 3,
+    "max_projection_weight": 3,
+    "max_spatial_solution_weight": 3,
+    "metadata_sha256": "8bbe4e0a488153eab52120779b3eaaaf76ad1e7975d5615d23c531cca228afdb",
+    "num_dem_mechanisms": 10551,
+    "num_detectors": 1323,
+    "num_improved_initial_projections": 0,
+    "num_observables": 64,
+    "num_osd_spatial_solutions": 0,
+    "num_phenomenological_variables": 4221,
+    "num_unique_projection_rhs": 10551,
+    "num_unique_spatial_rhs": 867,
+    "num_zero_projection_mechanisms": 0,
+    "observables_sha256": "8d4a515d656b3d6cd6a879dfe44a7aa44f30de25a15d353718ef701487de25b4",
+    "priors_sha256": "aaf056e288d7c1890db40869c948c4473828c9686aa70e4e257ac573e4146691",
+    "projection_method": "preserve each DEM mechanism's detectors and canonical observables, then retain independent one-variable marginals",
+    "projection_sha256": "277ee5a6c580155958399e4b192ce5fb3a08a526f7592fe4fb9a34bfe69ce6e5",
+    "projection_version": "phenom-dem-independent-marginals-v2",
+    "spatial_solver": "exact-weight-0-to-4-then-bp-osd-cs-order-0",
+    "spatial_solver_error_prior": 0.01,
+    "spatial_solver_max_iter": 100,
+    "used_approximate_disjoint_errors": false
+  },
+  "request": {
+    "batch_id": "6dfd103f712f5149-b0000",
+    "code": "heawood_cycle",
+    "decoder_config": "phenom_stim_dem_priors_relay_g00.65_pre80_sets100_iter60_gdim0.24to0.66_nconv5",
+    "execution_site": "cpu200",
+    "model": "stim_flattened_dem_priors_phenomenological_graph",
+    "p": 0.0016156982047277365,
+    "p1": 0.00016156982047277365,
+    "p2": 0.0016156982047277365,
+    "p_spam": 0.0016156982047277365,
+    "processes": 30,
+    "relay_parameters": {
+      "gamma0": 0.65,
+      "gamma_dist_interval": [
+        -0.24,
+        0.66
+      ],
+      "num_sets": 100,
+      "pre_iter": 80,
+      "set_max_iter": 60,
+      "stop_nconv": 5
+    },
+    "sampler_seed": 14236876498400456531,
+    "schedule_seed": 1,
+    "schema_version": 1,
+    "shots": 1000,
+    "variant": "reduced_split"
+  },
+  "runtime_versions": {
+    "ldpc": "2.4.1",
+    "numpy": "2.4.4",
+    "python": "3.12.14",
+    "relay_bp": "0.2.1",
+    "scipy": "1.17.1",
+    "stim": "1.15.0"
+  },
+  "shots": 1000
+}

@@ -1,0 +1,280 @@
+{
+  "circuit_metadata": {
+    "circuit_sha256": "aa02a736e7143b803f5b27b6be2224807c52f2266331760c46b93b79973e5987",
+    "cnot_layer_count": 48,
+    "cnot_layer_pair_counts": [
+      [
+        1,
+        408
+      ],
+      [
+        2,
+        259
+      ],
+      [
+        3,
+        408
+      ],
+      [
+        4,
+        259
+      ],
+      [
+        5,
+        408
+      ],
+      [
+        6,
+        251
+      ],
+      [
+        7,
+        408
+      ],
+      [
+        8,
+        251
+      ],
+      [
+        11,
+        408
+      ],
+      [
+        12,
+        259
+      ],
+      [
+        13,
+        408
+      ],
+      [
+        14,
+        259
+      ],
+      [
+        15,
+        408
+      ],
+      [
+        16,
+        251
+      ],
+      [
+        17,
+        408
+      ],
+      [
+        18,
+        251
+      ],
+      [
+        21,
+        408
+      ],
+      [
+        22,
+        259
+      ],
+      [
+        23,
+        408
+      ],
+      [
+        24,
+        259
+      ],
+      [
+        25,
+        408
+      ],
+      [
+        26,
+        251
+      ],
+      [
+        27,
+        408
+      ],
+      [
+        28,
+        251
+      ],
+      [
+        31,
+        408
+      ],
+      [
+        32,
+        259
+      ],
+      [
+        33,
+        408
+      ],
+      [
+        34,
+        259
+      ],
+      [
+        35,
+        408
+      ],
+      [
+        36,
+        251
+      ],
+      [
+        37,
+        408
+      ],
+      [
+        38,
+        251
+      ],
+      [
+        41,
+        408
+      ],
+      [
+        42,
+        259
+      ],
+      [
+        43,
+        408
+      ],
+      [
+        44,
+        259
+      ],
+      [
+        45,
+        408
+      ],
+      [
+        46,
+        251
+      ],
+      [
+        47,
+        408
+      ],
+      [
+        48,
+        251
+      ],
+      [
+        51,
+        408
+      ],
+      [
+        52,
+        259
+      ],
+      [
+        53,
+        408
+      ],
+      [
+        54,
+        259
+      ],
+      [
+        55,
+        408
+      ],
+      [
+        56,
+        251
+      ],
+      [
+        57,
+        408
+      ],
+      [
+        58,
+        251
+      ]
+    ],
+    "cnot_order_sha256": "13a860bfbf217add85c2dde4dc8876efd6fa814f2e2ff00f8cb77325c5b38454",
+    "cnot_pair_count": 15912,
+    "num_detectors": 1911,
+    "num_measurements": 2248,
+    "num_observables": 64,
+    "num_qubits": 1156
+  },
+  "code_metadata": {
+    "code_k": 64,
+    "code_n": 610,
+    "rounds": 6,
+    "schedule_seed": 0
+  },
+  "completed_utc": "2026-08-31T18:57:58.876402Z",
+  "failures": 11,
+  "phenomenological_model": {
+    "all_projections_minimum_weight_certified": true,
+    "all_spatial_solutions_minimum_weight_certified": true,
+    "exact_dem_rejection": null,
+    "graph_projection_solver": "exact-global-weight-0-to-4-with-certified-weight-5-upper-bound",
+    "graph_sha256": "8c22a3cb3539930d98e6df1bcc6e35fa83e0945483932fb2af1bb30dfaf0cafd",
+    "max_initial_projection_weight": 3,
+    "max_projection_weight": 3,
+    "max_spatial_solution_weight": 2,
+    "metadata_sha256": "58cdad932f2c9041ff100895ab86d5793119befcf200c9cd640aad5378e9b9cb",
+    "num_dem_mechanisms": 13246,
+    "num_detectors": 1911,
+    "num_improved_initial_projections": 0,
+    "num_observables": 64,
+    "num_osd_spatial_solutions": 0,
+    "num_phenomenological_variables": 5908,
+    "num_unique_projection_rhs": 13246,
+    "num_unique_spatial_rhs": 1118,
+    "num_zero_projection_mechanisms": 0,
+    "observables_sha256": "fb0ea6a8555b94ab17546cc09d3dc05079ac033cd6ba9487ad044fe446ade338",
+    "priors_sha256": "7207e86c22eccd1870c781fc7e50e42162c2e72d900af04861e03e8e5e48e5ee",
+    "projection_method": "preserve each DEM mechanism's detectors and canonical observables, then retain independent one-variable marginals",
+    "projection_sha256": "79bd3beab718249ab1869b81dbc85abff993bb11ee7bca4b2c049567f3a737cd",
+    "projection_version": "phenom-dem-independent-marginals-v2",
+    "spatial_solver": "exact-weight-0-to-4-then-bp-osd-cs-order-0",
+    "spatial_solver_error_prior": 0.01,
+    "spatial_solver_max_iter": 100,
+    "used_approximate_disjoint_errors": false
+  },
+  "request": {
+    "batch_id": "bc80c6a7c37f8f47-b0003",
+    "code": "heawood_cycle",
+    "decoder_config": "phenom_stim_dem_priors_relay_g00.65_pre80_sets100_iter60_gdim0.24to0.66_nconv5",
+    "execution_site": "cpu200",
+    "model": "stim_flattened_dem_priors_phenomenological_graph",
+    "p": 0.0006703746200976401,
+    "p1": 6.703746200976401e-05,
+    "p2": 0.0006703746200976401,
+    "p_spam": 0.0006703746200976401,
+    "processes": 30,
+    "relay_parameters": {
+      "gamma0": 0.65,
+      "gamma_dist_interval": [
+        -0.24,
+        0.66
+      ],
+      "num_sets": 100,
+      "pre_iter": 80,
+      "set_max_iter": 60,
+      "stop_nconv": 5
+    },
+    "sampler_seed": 5890844097975250014,
+    "schedule_seed": 0,
+    "schema_version": 1,
+    "shots": 4000,
+    "variant": "unreduced_cardinal"
+  },
+  "runtime_versions": {
+    "ldpc": "2.4.1",
+    "numpy": "2.4.4",
+    "python": "3.12.14",
+    "relay_bp": "0.2.1",
+    "scipy": "1.17.1",
+    "stim": "1.15.0"
+  },
+  "shots": 4000
+}

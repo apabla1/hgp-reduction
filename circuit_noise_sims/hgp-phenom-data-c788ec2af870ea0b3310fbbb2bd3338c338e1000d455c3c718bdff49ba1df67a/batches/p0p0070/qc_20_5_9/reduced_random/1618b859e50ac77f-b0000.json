@@ -1,0 +1,736 @@
+{
+  "circuit_metadata": {
+    "circuit_sha256": "ebbe47c18418a5f82ace28a4c44a1e34c32e3b595b205eb8e60012ebda756adc",
+    "cnot_layer_count": 162,
+    "cnot_layer_pair_counts": [
+      [
+        0,
+        75
+      ],
+      [
+        1,
+        225
+      ],
+      [
+        2,
+        225
+      ],
+      [
+        3,
+        175
+      ],
+      [
+        4,
+        225
+      ],
+      [
+        5,
+        100
+      ],
+      [
+        6,
+        45
+      ],
+      [
+        7,
+        130
+      ],
+      [
+        8,
+        200
+      ],
+      [
+        10,
+        50
+      ],
+      [
+        11,
+        225
+      ],
+      [
+        12,
+        225
+      ],
+      [
+        13,
+        175
+      ],
+      [
+        14,
+        225
+      ],
+      [
+        15,
+        125
+      ],
+      [
+        16,
+        25
+      ],
+      [
+        17,
+        125
+      ],
+      [
+        18,
+        200
+      ],
+      [
+        20,
+        75
+      ],
+      [
+        21,
+        225
+      ],
+      [
+        22,
+        225
+      ],
+      [
+        23,
+        175
+      ],
+      [
+        24,
+        225
+      ],
+      [
+        25,
+        100
+      ],
+      [
+        26,
+        45
+      ],
+      [
+        27,
+        130
+      ],
+      [
+        28,
+        200
+      ],
+      [
+        30,
+        50
+      ],
+      [
+        31,
+        225
+      ],
+      [
+        32,
+        225
+      ],
+      [
+        33,
+        175
+      ],
+      [
+        34,
+        225
+      ],
+      [
+        35,
+        125
+      ],
+      [
+        36,
+        25
+      ],
+      [
+        37,
+        125
+      ],
+      [
+        38,
+        200
+      ],
+      [
+        40,
+        75
+      ],
+      [
+        41,
+        225
+      ],
+      [
+        42,
+        225
+      ],
+      [
+        43,
+        175
+      ],
+      [
+        44,
+        225
+      ],
+      [
+        45,
+        100
+      ],
+      [
+        46,
+        45
+      ],
+      [
+        47,
+        130
+      ],
+      [
+        48,
+        200
+      ],
+      [
+        50,
+        50
+      ],
+      [
+        51,
+        225
+      ],
+      [
+        52,
+        225
+      ],
+      [
+        53,
+        175
+      ],
+      [
+        54,
+        225
+      ],
+      [
+        55,
+        125
+      ],
+      [
+        56,
+        25
+      ],
+      [
+        57,
+        125
+      ],
+      [
+        58,
+        200
+      ],
+      [
+        60,
+        75
+      ],
+      [
+        61,
+        225
+      ],
+      [
+        62,
+        225
+      ],
+      [
+        63,
+        175
+      ],
+      [
+        64,
+        225
+      ],
+      [
+        65,
+        100
+      ],
+      [
+        66,
+        45
+      ],
+      [
+        67,
+        130
+      ],
+      [
+        68,
+        200
+      ],
+      [
+        70,
+        50
+      ],
+      [
+        71,
+        225
+      ],
+      [
+        72,
+        225
+      ],
+      [
+        73,
+        175
+      ],
+      [
+        74,
+        225
+      ],
+      [
+        75,
+        125
+      ],
+      [
+        76,
+        25
+      ],
+      [
+        77,
+        125
+      ],
+      [
+        78,
+        200
+      ],
+      [
+        80,
+        75
+      ],
+      [
+        81,
+        225
+      ],
+      [
+        82,
+        225
+      ],
+      [
+        83,
+        175
+      ],
+      [
+        84,
+        225
+      ],
+      [
+        85,
+        100
+      ],
+      [
+        86,
+        45
+      ],
+      [
+        87,
+        130
+      ],
+      [
+        88,
+        200
+      ],
+      [
+        90,
+        50
+      ],
+      [
+        91,
+        225
+      ],
+      [
+        92,
+        225
+      ],
+      [
+        93,
+        175
+      ],
+      [
+        94,
+        225
+      ],
+      [
+        95,
+        125
+      ],
+      [
+        96,
+        25
+      ],
+      [
+        97,
+        125
+      ],
+      [
+        98,
+        200
+      ],
+      [
+        100,
+        75
+      ],
+      [
+        101,
+        225
+      ],
+      [
+        102,
+        225
+      ],
+      [
+        103,
+        175
+      ],
+      [
+        104,
+        225
+      ],
+      [
+        105,
+        100
+      ],
+      [
+        106,
+        45
+      ],
+      [
+        107,
+        130
+      ],
+      [
+        108,
+        200
+      ],
+      [
+        110,
+        50
+      ],
+      [
+        111,
+        225
+      ],
+      [
+        112,
+        225
+      ],
+      [
+        113,
+        175
+      ],
+      [
+        114,
+        225
+      ],
+      [
+        115,
+        125
+      ],
+      [
+        116,
+        25
+      ],
+      [
+        117,
+        125
+      ],
+      [
+        118,
+        200
+      ],
+      [
+        120,
+        75
+      ],
+      [
+        121,
+        225
+      ],
+      [
+        122,
+        225
+      ],
+      [
+        123,
+        175
+      ],
+      [
+        124,
+        225
+      ],
+      [
+        125,
+        100
+      ],
+      [
+        126,
+        45
+      ],
+      [
+        127,
+        130
+      ],
+      [
+        128,
+        200
+      ],
+      [
+        130,
+        50
+      ],
+      [
+        131,
+        225
+      ],
+      [
+        132,
+        225
+      ],
+      [
+        133,
+        175
+      ],
+      [
+        134,
+        225
+      ],
+      [
+        135,
+        125
+      ],
+      [
+        136,
+        25
+      ],
+      [
+        137,
+        125
+      ],
+      [
+        138,
+        200
+      ],
+      [
+        140,
+        75
+      ],
+      [
+        141,
+        225
+      ],
+      [
+        142,
+        225
+      ],
+      [
+        143,
+        175
+      ],
+      [
+        144,
+        225
+      ],
+      [
+        145,
+        100
+      ],
+      [
+        146,
+        45
+      ],
+      [
+        147,
+        130
+      ],
+      [
+        148,
+        200
+      ],
+      [
+        150,
+        50
+      ],
+      [
+        151,
+        225
+      ],
+      [
+        152,
+        225
+      ],
+      [
+        153,
+        175
+      ],
+      [
+        154,
+        225
+      ],
+      [
+        155,
+        125
+      ],
+      [
+        156,
+        25
+      ],
+      [
+        157,
+        125
+      ],
+      [
+        158,
+        200
+      ],
+      [
+        160,
+        75
+      ],
+      [
+        161,
+        225
+      ],
+      [
+        162,
+        225
+      ],
+      [
+        163,
+        175
+      ],
+      [
+        164,
+        225
+      ],
+      [
+        165,
+        100
+      ],
+      [
+        166,
+        45
+      ],
+      [
+        167,
+        130
+      ],
+      [
+        168,
+        200
+      ],
+      [
+        170,
+        50
+      ],
+      [
+        171,
+        225
+      ],
+      [
+        172,
+        225
+      ],
+      [
+        173,
+        175
+      ],
+      [
+        174,
+        225
+      ],
+      [
+        175,
+        125
+      ],
+      [
+        176,
+        25
+      ],
+      [
+        177,
+        125
+      ],
+      [
+        178,
+        200
+      ]
+    ],
+    "cnot_order_sha256": "3a9e80608b68a9c817a49eefe719a5f1721913ca762a0464212a0cf372dfb552",
+    "cnot_pair_count": 24975,
+    "num_detectors": 2250,
+    "num_measurements": 2500,
+    "num_observables": 25,
+    "num_qubits": 925
+  },
+  "code_metadata": {
+    "code_k": 25,
+    "code_n": 475,
+    "rounds": 9,
+    "schedule_seed": 1
+  },
+  "completed_utc": "2026-08-31T18:22:40.415420Z",
+  "failures": 1000,
+  "phenomenological_model": {
+    "all_projections_minimum_weight_certified": true,
+    "all_spatial_solutions_minimum_weight_certified": true,
+    "exact_dem_rejection": null,
+    "graph_projection_solver": "exact-global-weight-0-to-4-with-certified-weight-5-upper-bound",
+    "graph_sha256": "f38177dfbbc56c8ad748c64e329dc46c9e618cb3aee03167f4567a9fb4f1c9b5",
+    "max_initial_projection_weight": 4,
+    "max_projection_weight": 4,
+    "max_spatial_solution_weight": 4,
+    "metadata_sha256": "d9d0d6767082ddaabcf8692bb5c1b4202acc0289f2bc02ad559a2b06bab6d7f7",
+    "num_dem_mechanisms": 21400,
+    "num_detectors": 2250,
+    "num_improved_initial_projections": 225,
+    "num_observables": 25,
+    "num_osd_spatial_solutions": 0,
+    "num_phenomenological_variables": 6775,
+    "num_unique_projection_rhs": 21400,
+    "num_unique_spatial_rhs": 1176,
+    "num_zero_projection_mechanisms": 0,
+    "observables_sha256": "685d46c97bbd7e456dacabf68fb228cd8566a87260dd615fc015726e50d946cb",
+    "priors_sha256": "a6d1ce82048ef496afd9a048507f85a59a9c4b172c4380ae87c00104df6ea38d",
+    "projection_method": "preserve each DEM mechanism's detectors and canonical observables, then retain independent one-variable marginals",
+    "projection_sha256": "ef6dba0630cc514c980a41fbf73df2f3c35150513180e80f3db9e03513a89372",
+    "projection_version": "phenom-dem-independent-marginals-v2",
+    "spatial_solver": "exact-weight-0-to-4-then-bp-osd-cs-order-0",
+    "spatial_solver_error_prior": 0.01,
+    "spatial_solver_max_iter": 100,
+    "used_approximate_disjoint_errors": false
+  },
+  "request": {
+    "batch_id": "1618b859e50ac77f-b0000",
+    "code": "qc_20_5_9",
+    "decoder_config": "phenom_stim_dem_priors_relay_g00.65_pre80_sets100_iter60_gdim0.24to0.66_nconv5",
+    "execution_site": "cpu200",
+    "model": "stim_flattened_dem_priors_phenomenological_graph",
+    "p": 0.007,
+    "p1": 0.0007,
+    "p2": 0.007,
+    "p_spam": 0.007,
+    "processes": 30,
+    "relay_parameters": {
+      "gamma0": 0.65,
+      "gamma_dist_interval": [
+        -0.24,
+        0.66
+      ],
+      "num_sets": 100,
+      "pre_iter": 80,
+      "set_max_iter": 60,
+      "stop_nconv": 5
+    },
+    "sampler_seed": 8512042986500919450,
+    "schedule_seed": 1,
+    "schema_version": 1,
+    "shots": 1000,
+    "variant": "reduced_random"
+  },
+  "runtime_versions": {
+    "ldpc": "2.4.1",
+    "numpy": "2.4.4",
+    "python": "3.12.14",
+    "relay_bp": "0.2.1",
+    "scipy": "1.17.1",
+    "stim": "1.15.0"
+  },
+  "shots": 1000
+}

@@ -3,6 +3,7 @@ import scipy.sparse as sp
 import warnings
 import networkx as nx
 from bposd.css import css_code
+from functions.logical_basis import canonical_hgp_left_logicals
 
 
 def add(H1, H2):
@@ -322,6 +323,10 @@ def get_reduced_code(code, H):
     ### Reduced code (unchanged total checks)
     newcode = css_code(hx=Hxnew, hz=Hznew)
     newcode.name = 'Transformed code'
+    newcode.original_qubit_indices = np.asarray(kept_cols, dtype=int)
+    canonical_lx, canonical_lz = canonical_hgp_left_logicals(code.h1, code.h2)
+    newcode.canonical_lx = canonical_lx[:, newcode.original_qubit_indices].tocsr()
+    newcode.canonical_lz = canonical_lz[:, newcode.original_qubit_indices].tocsr()
     print(f"\tReduced code: [[n', k', d']] = [[{newcode.N}, {newcode.K}, {code.D}]]")
 
     return (

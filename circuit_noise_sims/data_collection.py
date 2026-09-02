@@ -1,10 +1,11 @@
 import argparse
+import hashlib
 import os
 import queue
 import sys
 import time
 from multiprocessing import Manager, Pool
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Sequence, Tuple
 
 import matplotlib
 import numpy as np
@@ -15,7 +16,11 @@ if os.environ.get("XDG_SESSION_TYPE", "").lower() == "wayland" and "QT_QPA_PLATF
 if "MPLBACKEND" not in os.environ and not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
     matplotlib.use("Agg")
 
-from functions.H_to_CNOT_circuit import generate_full_circuit, generate_full_circuit_split
+from functions.H_to_CNOT_circuit import (
+    generate_full_circuit,
+    generate_full_circuit_cardinal,
+    generate_full_circuit_split,
+)
 from functions.decoding import num_failures_BP
 from functions.reduction_funcs import get_reduced_code
 from functions.sim_common import (
@@ -42,6 +47,14 @@ def _fmt_secs(sec: float) -> str:
     return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
 
 
+def derive_sampler_seed(base_seed: int, *labels: Any) -> int:
+    """Derive a stable unsigned 64-bit Stim seed without Python's hash()."""
+
+    payload = "|".join([str(int(base_seed)), *(str(label) for label in labels)])
+    digest = hashlib.blake2b(payload.encode("utf-8"), digest_size=8).digest()
+    return int.from_bytes(digest, byteorder="little", signed=False)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run noisy simulations and append data tables.")
     parser.add_argument("--shots", type=int, default=None,
@@ -50,10 +63,25 @@ def parse_args() -> argparse.Namespace:
                         help="Decoder to use: OSD, LSD, or Relay.")
     parser.add_argument("--codes", type=str, nargs="+", default=None,
                         help="Codes to simulate. (DEFAULT: all available codes)")
+    parser.add_argument(
+        "--variants",
+        nargs="+",
+        choices=VARIANTS,
+        default=list(VARIANTS),
+        help=(
+            "Circuit variants to simulate. Choices: "
+            f"{', '.join(VARIANTS)}. (DEFAULT: all)"
+        ),
+    )
     parser.add_argument("--list-codes", action="store_true",
                         help="List available codes and exit.")
     parser.add_argument("--processes", type=int, default=4,
                         help="Number of parallel worker processes for sampling. (DEFAULT: 4)")
+    parser.add_argument("--sampler-seed", type=int, default=0,
+                        help="Base seed for deterministic Stim sampling. (DEFAULT: 0)")
+    parser.add_argument("--schedule-seed", type=int, default=1,
+                        help=("Fixed seed for reduced-circuit layer shuffles at every p value. "
+                              "The cardinal baseline uses seed 0. (DEFAULT: 1)"))
     parser.add_argument("--p-values", nargs="+", default=None,
                         help=(
                             "P-value selection mode. Use comma-separated explicit values "
@@ -96,18 +124,26 @@ def parse_args() -> argparse.Namespace:
 
     if args.shots <= 0:
         raise ValueError("--shots must be positive")
+    if args.sampler_seed < 0:
+        raise ValueError("--sampler-seed must be nonnegative")
+    if args.schedule_seed < 0:
+        raise ValueError("--schedule-seed must be nonnegative")
 
     return args
 
 
 def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decoder: str,
-                             dec_params: List[Any], shots: int, processes: int = 1) -> int:
+                             dec_params: List[Any], shots: int, processes: int = 1,
+                             sampler_seed: int = 0) -> int:
     """Sample circuit outcomes and return number of logical failures."""
     print(f"\t\tSampling CNOT circuit and decoding via {decoder}...")
 
     workers = max(1, min(int(processes), int(shots)))
     if workers == 1:
-        failures = num_failures_BP(code, decoder, circ, dec_params, p2, shots, rounds)
+        failures = num_failures_BP(
+            code, decoder, circ, dec_params, p2, shots, rounds,
+            sampler_seed=sampler_seed,
+        )
     else:
         base, rem = divmod(shots, workers)
         shot_chunks = [base + (1 if i < rem else 0) for i in range(workers)]
@@ -116,7 +152,10 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
 
         if not sys.stdout.isatty(): # if stdout is not a terminal
             params = [
-                (code, decoder, circ, dec_params, p2, s, rounds, True, None, worker_id)
+                (
+                    code, decoder, circ, dec_params, p2, s, rounds, True,
+                    derive_sampler_seed(sampler_seed, worker_id), worker_id,
+                )
                 for worker_id, s in worker_specs
             ]
             with Pool(processes=len(params)) as pool:
@@ -181,7 +220,11 @@ def sample_hgp_circuit_noise(code: Any, circ: Any, rounds: int, p2: float, decod
             with Manager() as manager:
                 progress_queue = manager.Queue()
                 params = [
-                    (code, decoder, circ, dec_params, p2, s, rounds, False, None, worker_id, progress_queue)
+                    (
+                        code, decoder, circ, dec_params, p2, s, rounds, False,
+                        derive_sampler_seed(sampler_seed, worker_id), worker_id,
+                        progress_queue,
+                    )
                     for worker_id, s in worker_specs
                 ]
 
@@ -239,7 +282,10 @@ def run_one_probability(
     dec_params: List[Any],
     rounds: int,
     seed: int,
+    sampler_seed: int,
+    variants: Sequence[str],
     unreduced_code: Any,
+    h: Any,
     reduced_code: Any,
     hx1: Any,
     hx2: Any,
@@ -249,51 +295,78 @@ def run_one_probability(
     hz3: Any,
 ) -> Dict[str, int]:
     print(f"\n\t*******Noise parameters: p1={p/10:.3e}, p2={p:.3e}, p_spam={p:.3e}*******")
+    failures: Dict[str, int] = {}
 
-    print("\tGenerating *unreduced* CNOT syndrome circuit with random syndrome extraction...")
-    unreduced_random_circ = generate_full_circuit(unreduced_code, rounds, (p / 10, p, p), seed)
-    unreduced_failures = sample_hgp_circuit_noise(
-        unreduced_code,
-        unreduced_random_circ,
-        rounds,
-        p,
-        decoder,
-        dec_params,
-        shots,
-        processes=processes,
-    )
+    if "unreduced_cardinal" in variants:
+        print("\tGenerating *unreduced* cardinal syndrome circuit (fixed schedule seed 0)...")
+        cardinal_circ = generate_full_circuit_cardinal(
+            unreduced_code, h, h, rounds, (p / 10, p, p), seed=0,
+        )
+        failures["unreduced_cardinal"] = sample_hgp_circuit_noise(
+            unreduced_code,
+            cardinal_circ,
+            rounds,
+            p,
+            decoder,
+            dec_params,
+            shots,
+            processes=processes,
+            sampler_seed=derive_sampler_seed(sampler_seed, "unreduced_cardinal"),
+        )
 
-    print("\tGenerating *reduced* CNOT syndrome circuit with random syndrome extraction...")
-    reduced_random_circ = generate_full_circuit(reduced_code, rounds, (p / 10, p, p), seed)
-    reduced_random_failures = sample_hgp_circuit_noise(
-        reduced_code,
-        reduced_random_circ,
-        rounds,
-        p,
-        decoder,
-        dec_params,
-        shots,
-        processes=processes,
-    )
+    if "unreduced_random" in variants:
+        print("\tGenerating *unreduced* syndrome circuit with shuffled edge-color layers...")
+        unreduced_random_circ = generate_full_circuit(
+            unreduced_code, rounds, (p / 10, p, p), seed,
+        )
+        failures["unreduced_random"] = sample_hgp_circuit_noise(
+            unreduced_code,
+            unreduced_random_circ,
+            rounds,
+            p,
+            decoder,
+            dec_params,
+            shots,
+            processes=processes,
+            sampler_seed=derive_sampler_seed(sampler_seed, "unreduced_random"),
+        )
 
-    print("\tGenerating *reduced* CNOT syndrome circuit with split syndrome extraction...")
-    reduced_split_circ = generate_full_circuit_split(hx1, hx2, hx3, hz1, hz2, hz3, rounds, (p / 10, p, p), seed)
-    reduced_split_failures = sample_hgp_circuit_noise(
-        reduced_code,
-        reduced_split_circ,
-        rounds,
-        p,
-        decoder,
-        dec_params,
-        shots,
-        processes=processes,
-    )
+    if "reduced_random" in variants:
+        print("\tGenerating *reduced* syndrome circuit with shuffled edge-color layers...")
+        reduced_random_circ = generate_full_circuit(
+            reduced_code, rounds, (p / 10, p, p), seed,
+        )
+        failures["reduced_random"] = sample_hgp_circuit_noise(
+            reduced_code,
+            reduced_random_circ,
+            rounds,
+            p,
+            decoder,
+            dec_params,
+            shots,
+            processes=processes,
+            sampler_seed=derive_sampler_seed(sampler_seed, "reduced_random"),
+        )
 
-    return {
-        "unreduced_random": unreduced_failures,
-        "reduced_random": reduced_random_failures,
-        "reduced_split": reduced_split_failures,
-    }
+    if "reduced_split" in variants:
+        print("\tGenerating *reduced* syndrome circuit with split extraction...")
+        reduced_split_circ = generate_full_circuit_split(
+            hx1, hx2, hx3, hz1, hz2, hz3, rounds, (p / 10, p, p), seed,
+            code=reduced_code,
+        )
+        failures["reduced_split"] = sample_hgp_circuit_noise(
+            reduced_code,
+            reduced_split_circ,
+            rounds,
+            p,
+            decoder,
+            dec_params,
+            shots,
+            processes=processes,
+            sampler_seed=derive_sampler_seed(sampler_seed, "reduced_split"),
+        )
+
+    return failures
 
 
 def main() -> None:
@@ -305,9 +378,11 @@ def main() -> None:
     selected_codes = sorted(available_codes.keys()) if args.codes is None else list(args.codes)
     if args.codes is not None:
         validate_selected_codes(selected_codes)
+    selected_variants = list(dict.fromkeys(args.variants))
 
     print(f"{'=' * 60}")
     print(f"Selected codes: {selected_codes}")
+    print(f"Selected variants: {selected_variants}")
     print(f"Using p values: {p_values}")
     print(f"{'=' * 60}\n\n")
 
@@ -334,7 +409,7 @@ def main() -> None:
             continue
 
         results: Dict[str, np.ndarray] = {}
-        for variant in VARIANTS:
+        for variant in selected_variants:
             path = get_data_path(code_name, variant, args.decoder, dec_params)
             try:
                 results[variant] = load_data_table(path)
@@ -344,6 +419,11 @@ def main() -> None:
 
         for idx, p in enumerate(p_values):
             print(f"\n\tError point {idx + 1}/{len(p_values)}: p={p:.3e}")
+            point_sampler_seed = derive_sampler_seed(
+                args.sampler_seed,
+                code_name,
+                format(float(p), ".17g"),
+            )
             try:
                 failure_counts = run_one_probability(
                     p=p,
@@ -352,18 +432,21 @@ def main() -> None:
                     decoder=args.decoder,
                     dec_params=dec_params,
                     rounds=d,
-                    seed=idx + 1,
+                    seed=args.schedule_seed,
+                    sampler_seed=point_sampler_seed,
+                    variants=selected_variants,
                     unreduced_code=unreduced_code,
+                    h=h,
                     reduced_code=reduced_code,
                     hx1=hx1,
                     hx2=hx2,
                     hx3=hx3,
                     hz1=hz1,
                     hz2=hz2,
-                    hz3=hz3,        
+                    hz3=hz3,
                 )
 
-                for variant in VARIANTS:
+                for variant in selected_variants:
                     results[variant] = append_result_row(
                         results[variant],
                         p=p,

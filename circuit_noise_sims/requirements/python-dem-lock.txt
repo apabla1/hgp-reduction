@@ -1,0 +1,9 @@
+# Exact environment used for the Stim-DEM-informed phenomenological manuscript sweep.
+numpy==2.4.4
+scipy==1.17.1
+matplotlib==3.10.8
+networkx==3.6.1
+stim==1.15.0
+ldpc==2.4.1
+bposd==2.1
+relay-bp==0.2.1
